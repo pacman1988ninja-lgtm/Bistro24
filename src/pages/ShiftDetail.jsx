@@ -1,21 +1,24 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { store } from '../store';
-import { ArrowLeft, Receipt, Lock, List, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Receipt, Lock, List, AlertCircle, Edit3, History } from 'lucide-react';
 
 export default function ShiftDetail({ user }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [shift, setShift] = useState(null);
   const [ops, setOps] = useState([]);
+  const [audit, setAudit] = useState([]);
 
   useEffect(() => { load(); }, [id]);
 
   const load = async () => {
     const s = await store.getShift(id);
     const o = await store.getOperationsByShift(id);
+    const a = await store.getAuditLog('shift', id);
     setShift(s);
     setOps(o);
+    setAudit(a);
   };
 
   if (!shift) return <div className="empty-state">Загрузка...</div>;
@@ -23,15 +26,21 @@ export default function ShiftDetail({ user }) {
   const totalIncome = ops.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
   const totalExpense = ops.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
   const canEdit = shift.status === 'Открыта' && (shift.employeeId === user.id || user.role !== 'seller');
+  const canModifyClosed = store.canEditShift(shift, user);
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: 'var(--text)' }}><ArrowLeft size={24} /></button>
-        <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, paddingTop: 'env(safe-area-inset-top)' }}>
+        <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: 'var(--text)', padding: 8 }}><ArrowLeft size={24} /></button>
+        <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: 22 }}>Смена #{shift.id.slice(-4)}</h1>
           <span className={'badge ' + (shift.status === 'Открыта' ? 'badge-open' : 'badge-closed')}>{shift.status}</span>
         </div>
+        {shift.status === 'Закрыта' && canModifyClosed && (
+          <button onClick={() => navigate(`/shift/${id}/edit`)} style={{ background: 'var(--warning)', border: 'none', borderRadius: 8, padding: '8px 12px', color: '#000', fontSize: 12, fontWeight: 600 }}>
+            <Edit3 size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />Изменить
+          </button>
+        )}
       </div>
 
       <div className="stats-grid">
@@ -64,6 +73,17 @@ export default function ShiftDetail({ user }) {
         </div>
         <button className="btn btn-secondary" onClick={() => navigate(`/shift/${id}/operations`)}><List size={18} /> Журнал операций</button>
       </div>
+
+      {audit.length > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-title"><History size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} /> История изменений</div>
+          {audit.slice(0, 5).map(a => (
+            <div key={a.id} style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4, borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 4 }}>
+              {new Date(a.timestamp).toLocaleString('ru-RU')} — {a.action} {a.details?.new ? `(выручка: ${a.details.new.revenue} ₽)` : ''}
+            </div>
+          ))}
+        </div>
+      )}
 
       {canEdit && (
         <>

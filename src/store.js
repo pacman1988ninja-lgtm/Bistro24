@@ -1,5 +1,5 @@
 const DB_NAME = 'Bistro24DB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -13,6 +13,7 @@ function openDB() {
       if (!db.objectStoreNames.contains('photos')) db.createObjectStore('photos', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('users')) db.createObjectStore('users', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('references')) db.createObjectStore('references', { keyPath: 'key' });
+      if (!db.objectStoreNames.contains('audit')) db.createObjectStore('audit', { keyPath: 'id', autoIncrement: true });
     };
   });
 }
@@ -103,6 +104,27 @@ async function initDefaults() {
   if (!refs) {
     await dbPut('references', { key: 'main', data: DEFAULT_REFS });
   }
+}
+
+// Audit log
+async function logAudit(userId, action, entityType, entityId, details = {}) {
+  const entry = {
+    id: generateId(),
+    timestamp: nowISO(),
+    userId,
+    action,
+    entityType,
+    entityId,
+    details,
+  };
+  await dbPut('audit', entry);
+}
+
+async function getAudit(entityType, entityId) {
+  const all = await dbGetAll('audit');
+  return all
+    .filter(a => (!entityType || a.entityType === entityType) && (!entityId || a.entityId === entityId))
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 }
 
 export const store = {
@@ -225,14 +247,20 @@ export const store = {
       status: 'Открыта',
       closeDate: null,
       comment: '',
+      editDeadline: null,
+      version: 1,
     };
     await dbPut('shifts', shift);
+    await logAudit(employeeId, 'CREATE', 'shift', shift.id, { startBalance });
     return shift;
   },
 
-  async closeShift(shiftId, values) {
+  async closeShift(shiftId, values, userId) {
     const shift = await dbGet('shifts', shiftId);
     if (!shift) return null;
+
+    const oldData = { ...shift };
+
     shift.revenue = Number(values.revenue) || 0;
     shift.cash = Number(values.cash) || 0;
     shift.cashless = Number(values.cashless) || 0;
@@ -242,8 +270,54 @@ export const store = {
     shift.status = 'Закрыта';
     shift.closeDate = nowISO();
     shift.comment = values.comment || '';
+    shift.version = (shift.version || 1) + 1;
+
+    // editDeadline по роли
+    const user = await dbGet('users', userId);
+    const now = Date.now();
+    if (user?.role === 'seller') {
+      shift.editDeadline = now + 3 * 3600000; // 3 часа
+    } else if (user?.role === 'manager') {
+      shift.editDeadline = now + 7 * 86400000; // 7 дней
+    } else {
+      shift.editDeadline = now + 365 * 86400000 * 100; // бессрочно (100 лет)
+    }
+
     await dbPut('shifts', shift);
+    await logAudit(userId, 'CLOSE', 'shift', shiftId, { old: oldData, new: { revenue: shift.revenue, cash: shift.cash, cashless: shift.cashless, expense: shift.expense, endBalance: shift.endBalance } });
     return shift;
+  },
+
+  async updateShift(shiftId, values, userId) {
+    const shift = await dbGet('shifts', shiftId);
+    if (!shift) return null;
+    if (shift.status !== 'Закрыта') return null;
+    if (shift.editDeadline && Date.now() > shift.editDeadline) return null;
+
+    const oldData = { ...shift };
+
+    shift.revenue = Number(values.revenue) ?? shift.revenue;
+    shift.cash = Number(values.cash) ?? shift.cash;
+    shift.cashless = Number(values.cashless) ?? shift.cashless;
+    shift.deposit = Number(values.deposit) ?? shift.deposit;
+    shift.expense = Number(values.expense) ?? shift.expense;
+    shift.endBalance = shift.startBalance + shift.cash + shift.deposit - shift.expense;
+    shift.comment = values.comment ?? shift.comment;
+    shift.version = (shift.version || 1) + 1;
+
+    await dbPut('shifts', shift);
+    await logAudit(userId, 'UPDATE', 'shift', shiftId, { old: oldData, new: values });
+    return shift;
+  },
+
+  canEditShift(shift, user) {
+    if (!shift || shift.status !== 'Закрыта') return false;
+    if (!shift.editDeadline) return false;
+    if (Date.now() > shift.editDeadline) return false;
+    if (user.role === 'owner') return true;
+    if (user.role === 'manager') return true;
+    if (user.role === 'seller' && shift.employeeId === user.id) return true;
+    return false;
   },
 
   // Operations
@@ -256,7 +330,7 @@ export const store = {
     return ops.filter((o) => o.shiftId === shiftId).sort((a, b) => new Date(b.date) - new Date(a.date));
   },
 
-  async addOperation(op) {
+  async addOperation(op, userId) {
     const operation = {
       id: generateId(),
       date: nowISO(),
@@ -272,6 +346,7 @@ export const store = {
       photoIds: op.photoIds || [],
     };
     await dbPut('operations', operation);
+    await logAudit(userId || op.employeeId, 'CREATE', 'operation', operation.id, { amount: operation.amount, type: operation.type });
     return operation;
   },
 
@@ -290,13 +365,19 @@ export const store = {
     return dbDelete('photos', id);
   },
 
+  // Audit
+  async getAuditLog(entityType, entityId) {
+    return getAudit(entityType, entityId);
+  },
+
   // Export
   async getAllData() {
-    const [shifts, operations, users] = await Promise.all([
+    const [shifts, operations, users, audit] = await Promise.all([
       dbGetAll('shifts'),
       dbGetAll('operations'),
       dbGetAll('users'),
+      dbGetAll('audit'),
     ]);
-    return { shifts, operations, users };
+    return { shifts, operations, users, audit };
   },
 };

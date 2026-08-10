@@ -25,7 +25,6 @@ export default function NewOperation({ user }) {
   const selectedExpenseType = refs?.expenseTypes?.find(t => t.id === expenseTypeId);
   const expenseTypeName = selectedExpenseType?.name?.toLowerCase() || '';
 
-  // Определяем какой справочник показывать
   const showEmployees = expenseTypeName.includes('зарплата') || expenseTypeName.includes('заработная');
   const showContractors = expenseTypeName.includes('подрядчик');
   const showCounterparties = expenseTypeName.includes('поставщик') || expenseTypeName.includes('контрагент') || expenseTypeName.includes('аренд');
@@ -44,7 +43,7 @@ export default function NewOperation({ user }) {
     if (showContractors && relatedId) payload.contractorId = relatedId;
     if (showCounterparties && relatedId) payload.counterpartyId = relatedId;
 
-    await store.addOperation(payload);
+    await store.addOperation(payload, user.id);
     navigate(`/shift/${id}/operations`);
   };
 
@@ -52,8 +51,8 @@ export default function NewOperation({ user }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', color: 'var(--text)' }}><ArrowLeft size={24} /></button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, paddingTop: 'env(safe-area-inset-top)' }}>
+        <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', color: 'var(--text)', padding: 8 }}><ArrowLeft size={24} /></button>
         <h1 style={{ fontSize: 22 }}>Новая операция</h1>
       </div>
 
@@ -67,7 +66,7 @@ export default function NewOperation({ user }) {
 
       <div className="form-group">
         <label className="form-label">Сумма, ₽</label>
-        <input type="text" inputMode="decimal" className="form-input" value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0.00" />
+        <input type="tel" inputMode="decimal" pattern="[0-9.,]*" className="form-input" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" />
       </div>
 
       {type === 'expense' && (
@@ -80,7 +79,6 @@ export default function NewOperation({ user }) {
         </div>
       )}
 
-      {/* Условные справочники */}
       {showEmployees && (
         <div className="form-group">
           <label className="form-label">Сотрудник</label>

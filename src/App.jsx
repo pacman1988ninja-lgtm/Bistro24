@@ -4,6 +4,7 @@ import { store } from './store';
 import Login from './pages/Login';
 import Home from './pages/Home';
 import ShiftDetail from './pages/ShiftDetail';
+import EditShift from './pages/EditShift';
 import Operations from './pages/Operations';
 import NewOperation from './pages/NewOperation';
 import CloseShift from './pages/CloseShift';
@@ -48,6 +49,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Home user={user} />} />
             <Route path="/shift/:id" element={<ShiftDetail user={user} />} />
+            <Route path="/shift/:id/edit" element={<EditShift user={user} />} />
             <Route path="/shift/:id/operations" element={<Operations user={user} />} />
             <Route path="/shift/:id/operations/new" element={<NewOperation user={user} />} />
             <Route path="/shift/:id/close" element={<CloseShift user={user} />} />
