@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { store } from '../store';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { ArrowLeft, Plus, Edit3, Trash2 } from 'lucide-react';
 
 export default function Operations({ user }) {
   const { id } = useParams();
@@ -9,12 +9,15 @@ export default function Operations({ user }) {
   const [ops, setOps] = useState([]);
   const [refs, setRefs] = useState({});
   const [photos, setPhotos] = useState({});
+  const [shift, setShift] = useState(null);
 
   useEffect(() => { load(); }, [id]);
 
   const load = async () => {
+    const s = await store.getShift(id);
     const o = await store.getOperationsByShift(id);
     const r = await store.getReferences();
+    setShift(s);
     setOps(o);
     setRefs(r);
     const ph = {};
@@ -27,18 +30,27 @@ export default function Operations({ user }) {
     setPhotos(ph);
   };
 
+  const handleDelete = async (opId) => {
+    if (!confirm('Удалить операцию?')) return;
+    await store.deleteOperation(opId, user.id);
+    load();
+  };
+
   const getName = (list, id) => refs[list]?.find(x => x.id === id)?.name || '-';
+  const canEdit = shift?.status === 'Открыта';
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <button onClick={() => navigate(`/shift/${id}`)} style={{ background: 'none', border: 'none', color: 'var(--text)' }}><ArrowLeft size={24} /></button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, paddingTop: 'env(safe-area-inset-top)' }}>
+        <button onClick={() => navigate(`/shift/${id}`)} style={{ background: 'none', border: 'none', color: 'var(--text)', padding: 8 }}><ArrowLeft size={24} /></button>
         <h1 style={{ fontSize: 22 }}>Операции</h1>
       </div>
 
-      <button className="btn btn-primary" onClick={() => navigate(`/shift/${id}/operations/new`)} style={{ marginBottom: 16 }}>
-        <Plus size={18} /> Новая операция
-      </button>
+      {canEdit && (
+        <button className="btn btn-primary" onClick={() => navigate(`/shift/${id}/operations/new`)} style={{ marginBottom: 16 }}>
+          <Plus size={18} /> Новая операция
+        </button>
+      )}
 
       {ops.length === 0 && <div className="empty-state">Нет операций</div>}
 
@@ -50,8 +62,16 @@ export default function Operations({ user }) {
               <p>{new Date(op.date).toLocaleString('ru-RU')} • {getName('paymentForms', op.paymentFormId)}</p>
               {op.comment && <p style={{ fontSize: 12, marginTop: 4, fontStyle: 'italic' }}>{op.comment}</p>}
             </div>
-            <div className={'list-item-amount ' + (op.type === 'income' ? 'amount-income' : 'amount-expense')}>
-              {op.type === 'income' ? '+' : '-'}{op.amount.toLocaleString('ru-RU')} ₽
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className={'list-item-amount ' + (op.type === 'income' ? 'amount-income' : 'amount-expense')}>
+                {op.type === 'income' ? '+' : '-'}{op.amount.toLocaleString('ru-RU')} ₽
+              </div>
+              {canEdit && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <button onClick={() => navigate(`/shift/${id}/operations/${op.id}/edit`)} style={{ background: 'var(--surface-light)', border: 'none', borderRadius: 6, padding: 6, color: 'var(--text)' }}><Edit3 size={14} /></button>
+                  <button onClick={() => handleDelete(op.id)} style={{ background: 'var(--danger)', border: 'none', borderRadius: 6, padding: 6, color: '#fff' }}><Trash2 size={14} /></button>
+                </div>
+              )}
             </div>
           </div>
           {op.photoIds?.length > 0 && (

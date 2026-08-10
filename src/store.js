@@ -320,7 +320,67 @@ export const store = {
     return false;
   },
 
+  async deleteShift(id, userId) {
+    const shift = await dbGet('shifts', id);
+    if (!shift) return false;
+    // Открытую смену можно удалить всегда (если своя)
+    if (shift.status === 'Открыта') {
+      if (shift.employeeId !== userId) return false;
+      const ops = await dbGetAll('operations');
+      for (const op of ops.filter(o => o.shiftId === id)) {
+        await dbDelete('operations', op.id);
+        for (const pid of op.photoIds || []) await dbDelete('photos', pid);
+      }
+      await dbDelete('shifts', id);
+      await logAudit(userId, 'DELETE', 'shift', id, { status: 'Открыта' });
+      return true;
+    }
+    // Закрытую — только в срок
+    if (shift.status === 'Закрыта') {
+      const user = await dbGet('users', userId);
+      if (!this.canEditShift(shift, user)) return false;
+      const ops = await dbGetAll('operations');
+      for (const op of ops.filter(o => o.shiftId === id)) {
+        await dbDelete('operations', op.id);
+        for (const pid of op.photoIds || []) await dbDelete('photos', pid);
+      }
+      await dbDelete('shifts', id);
+      await logAudit(userId, 'DELETE', 'shift', id, { status: 'Закрыта' });
+      return true;
+    }
+    return false;
+  },
+
   // Operations
+  async getOperation(id) {
+    return dbGet('operations', id);
+  },
+
+  async updateOperation(opId, values, userId) {
+    const op = await dbGet('operations', opId);
+    if (!op) return null;
+    const oldData = { ...op };
+    op.amount = Number(values.amount) ?? op.amount;
+    op.type = values.type ?? op.type;
+    op.expenseTypeId = values.expenseTypeId ?? op.expenseTypeId;
+    op.contractorId = values.contractorId ?? op.contractorId;
+    op.counterpartyId = values.counterpartyId ?? op.counterpartyId;
+    op.paymentFormId = values.paymentFormId ?? op.paymentFormId;
+    op.comment = values.comment ?? op.comment;
+    op.photoIds = values.photoIds ?? op.photoIds;
+    await dbPut('operations', op);
+    await logAudit(userId, 'UPDATE', 'operation', opId, { old: oldData, new: values });
+    return op;
+  },
+
+  async deleteOperation(id, userId) {
+    const op = await dbGet('operations', id);
+    if (!op) return false;
+    for (const pid of op.photoIds || []) await dbDelete('photos', pid);
+    await dbDelete('operations', id);
+    await logAudit(userId, 'DELETE', 'operation', id, { amount: op.amount, type: op.type });
+    return true;
+  },
   async getOperations() {
     return dbGetAll('operations');
   },
@@ -359,18 +419,6 @@ export const store = {
 
   async getPhoto(id) {
     return dbGet('photos', id);
-  },
-
-  async deleteShift(id) {
-    const shift = await dbGet("shifts", id);
-    if (!shift || shift.status !== "Открыта") return false;
-    const ops = await dbGetAll("operations");
-    for (const op of ops.filter(o => o.shiftId === id)) {
-      await dbDelete("operations", op.id);
-      for (const pid of op.photoIds || []) await dbDelete("photos", pid);
-    }
-    await dbDelete("shifts", id);
-    return true;
   },
 
   async deletePhoto(id) {

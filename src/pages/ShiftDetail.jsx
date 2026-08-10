@@ -22,9 +22,10 @@ export default function ShiftDetail({ user }) {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Удалить открытую смену? Все операции будут удалены.')) return;
-    await store.deleteShift(id);
-    navigate('/');
+    if (!confirm('Удалить смену? Все операции будут удалены. Это действие нельзя отменить.')) return;
+    const ok = await store.deleteShift(id, user.id);
+    if (ok) navigate('/');
+    else alert('Нет прав на удаление или срок редактирования истёк');
   };
 
   if (!shift) return <div className="empty-state">Загрузка...</div>;
@@ -43,9 +44,14 @@ export default function ShiftDetail({ user }) {
           <span className={'badge ' + (shift.status === 'Открыта' ? 'badge-open' : 'badge-closed')}>{shift.status}</span>
         </div>
         {shift.status === 'Закрыта' && canModifyClosed && (
-          <button onClick={() => navigate(`/shift/${id}/edit`)} style={{ background: 'var(--warning)', border: 'none', borderRadius: 8, padding: '8px 12px', color: '#000', fontSize: 12, fontWeight: 600 }}>
-            <Edit3 size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />Изменить
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => navigate(`/shift/${id}/edit`)} style={{ background: 'var(--warning)', border: 'none', borderRadius: 8, padding: '8px 12px', color: '#000', fontSize: 12, fontWeight: 600 }}>
+              <Edit3 size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />Изменить
+            </button>
+            <button onClick={handleDelete} style={{ background: 'var(--danger)', border: 'none', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 12, fontWeight: 600 }}>
+              <Trash2 size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />Удалить
+            </button>
+          </div>
         )}
       </div>
 
