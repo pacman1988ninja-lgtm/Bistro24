@@ -18,7 +18,12 @@ export default function NewOperation({ user }) {
   const [photoIds, setPhotoIds] = useState([]);
 
   useEffect(() => {
-    store.getReferences().then(setRefs);
+    store.getReferences().then(r => {
+      setRefs(r);
+      // По умолчанию "Наличные"
+      const cashForm = r.paymentForms?.find(p => p.name === 'Наличные');
+      if (cashForm) setPaymentFormId(cashForm.id);
+    });
     store.getUsers().then(setUsers);
   }, []);
 
@@ -79,6 +84,17 @@ export default function NewOperation({ user }) {
         </div>
       )}
 
+      {type === 'income' && (
+        <div className="form-group">
+          <label className="form-label">Источник поступления</label>
+          <select className="form-select" value={relatedId} onChange={e => setRelatedId(e.target.value)}>
+            <option value="">Выберите источник...</option>
+            {refs.counterparties?.filter(t => t.active).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            {refs.contractors?.filter(t => t.active).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+      )}
+
       {showEmployees && (
         <div className="form-group">
           <label className="form-label">Сотрудник</label>
@@ -112,7 +128,6 @@ export default function NewOperation({ user }) {
       <div className="form-group">
         <label className="form-label">Форма оплаты</label>
         <select className="form-select" value={paymentFormId} onChange={e => setPaymentFormId(e.target.value)}>
-          <option value="">Выберите...</option>
           {refs.paymentForms?.filter(t => t.active).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
       </div>

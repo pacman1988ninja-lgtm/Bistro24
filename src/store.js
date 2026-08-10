@@ -361,6 +361,18 @@ export const store = {
     return dbGet('photos', id);
   },
 
+  async deleteShift(id) {
+    const shift = await dbGet("shifts", id);
+    if (!shift || shift.status !== "Открыта") return false;
+    const ops = await dbGetAll("operations");
+    for (const op of ops.filter(o => o.shiftId === id)) {
+      await dbDelete("operations", op.id);
+      for (const pid of op.photoIds || []) await dbDelete("photos", pid);
+    }
+    await dbDelete("shifts", id);
+    return true;
+  },
+
   async deletePhoto(id) {
     return dbDelete('photos', id);
   },

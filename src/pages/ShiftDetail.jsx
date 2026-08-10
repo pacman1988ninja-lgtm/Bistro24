@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { store } from '../store';
-import { ArrowLeft, Receipt, Lock, List, AlertCircle, Edit3, History } from 'lucide-react';
+import { ArrowLeft, Receipt, Lock, List, AlertCircle, Edit3, History, Trash2 } from 'lucide-react';
 
 export default function ShiftDetail({ user }) {
   const { id } = useParams();
@@ -19,6 +19,12 @@ export default function ShiftDetail({ user }) {
     setShift(s);
     setOps(o);
     setAudit(a);
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Удалить открытую смену? Все операции будут удалены.')) return;
+    await store.deleteShift(id);
+    navigate('/');
   };
 
   if (!shift) return <div className="empty-state">Загрузка...</div>;
@@ -41,6 +47,13 @@ export default function ShiftDetail({ user }) {
             <Edit3 size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />Изменить
           </button>
         )}
+      </div>
+
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-secondary)' }}>
+          <span>Открыта: {new Date(shift.openDate).toLocaleString('ru-RU')}</span>
+          {shift.closeDate && <span>Закрыта: {new Date(shift.closeDate).toLocaleString('ru-RU')}</span>}
+        </div>
       </div>
 
       <div className="stats-grid">
@@ -88,7 +101,8 @@ export default function ShiftDetail({ user }) {
       {canEdit && (
         <>
           <button className="btn btn-primary" onClick={() => navigate(`/shift/${id}/operations/new`)} style={{ marginBottom: 12 }}><Receipt size={18} /> Добавить операцию</button>
-          <button className="btn btn-success" onClick={() => navigate(`/shift/${id}/close`)}><Lock size={18} /> Закрыть смену</button>
+          <button className="btn btn-success" onClick={() => navigate(`/shift/${id}/close`)} style={{ marginBottom: 12 }}><Lock size={18} /> Закрыть смену</button>
+          <button className="btn btn-danger" onClick={handleDelete}><Trash2 size={18} /> Удалить смену</button>
         </>
       )}
     </div>

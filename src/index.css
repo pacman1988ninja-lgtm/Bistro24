@@ -18,7 +18,6 @@ html, body, #root { height: 100%; background: var(--bg); color: var(--text); fon
 .app-container {
   height: 100vh; display: flex; flex-direction: column;
   max-width: 430px; margin: 0 auto; background: var(--bg); position: relative;
-  padding-top: constant(safe-area-inset-top);
   padding-top: env(safe-area-inset-top);
 }
 

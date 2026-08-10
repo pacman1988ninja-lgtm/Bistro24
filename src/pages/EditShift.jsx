@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { store } from '../store';
-import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, AlertCircle, Calculator } from 'lucide-react';
 
 export default function EditShift({ user }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [shift, setShift] = useState(null);
+  const [opsExpense, setOpsExpense] = useState(0);
   const [revenue, setRevenue] = useState('');
   const [cash, setCash] = useState('');
   const [cashless, setCashless] = useState('');
@@ -14,30 +15,47 @@ export default function EditShift({ user }) {
   const [comment, setComment] = useState('');
 
   useEffect(() => {
-    store.getShift(id).then(s => {
+    store.getShift(id).then(async s => {
       if (!s || s.status !== 'Закрыта') return navigate('/');
       if (!store.canEditShift(s, user)) return navigate('/');
+      
+      // Пересчёт расхода из операций
+      const ops = await store.getOperationsByShift(id);
+      const refs = await store.getReferences();
+      const cashFormId = refs.paymentForms?.find(p => p.name === 'Наличные')?.id;
+      const total = ops
+        .filter(o => o.type === 'expense')
+        .filter(o => o.paymentFormId === cashFormId)
+        .reduce((sum, o) => sum + o.amount, 0);
+      
       setShift(s);
-      setRevenue(String(s.revenue));
-      setCash(String(s.cash));
-      setCashless(String(s.cashless));
-      setDeposit(String(s.deposit));
+      setOpsExpense(total);
+      setRevenue(String(s.revenue || 0));
+      setCash(String(s.cash || 0));
+      setCashless(String(s.cashless || 0));
+      setDeposit(String(s.deposit || 0));
       setComment(s.comment || '');
     });
   }, [id, user, navigate]);
 
   if (!shift) return null;
 
-  const calculated = Number(shift.startBalance) + Number(cash || 0) + Number(deposit || 0) - shift.expense;
+  const calculated = Number(shift.startBalance) + Number(cash || 0) + Number(deposit || 0) - opsExpense;
   const revenueMatch = Number(revenue || 0) === (Number(cash || 0) + Number(cashless || 0));
 
   const handleCalc = () => {
     const nRev = Number(revenue);
     const nCash = Number(cash);
     const nCashless = Number(cashless);
-    if (cash !== '' && cashless !== '' && revenue === '') setRevenue(String(nCash + nCashless));
-    else if (revenue !== '' && cash !== '' && cashless === '') setCashless(String(nRev - nCash));
-    else if (revenue !== '' && cashless !== '' && cash === '') setCash(String(nRev - nCashless));
+    if (cash !== '' && cashless !== '') {
+      setRevenue(String(nCash + nCashless));
+    } else if (revenue !== '' && cash !== '') {
+      setCashless(String(nRev - nCash));
+    } else if (revenue !== '' && cashless !== '') {
+      setCash(String(nRev - nCashless));
+    } else {
+      alert('Заполните хотя бы два поля');
+    }
   };
 
   const handleSave = async () => {
@@ -64,13 +82,13 @@ export default function EditShift({ user }) {
       <div className="form-group"><label className="form-label">Выручка, ₽</label><input type="tel" inputMode="decimal" className="form-input" value={revenue} onChange={e => setRevenue(e.target.value)} /></div>
       <div className="form-group"><label className="form-label">Наличные, ₽</label><input type="tel" inputMode="decimal" className="form-input" value={cash} onChange={e => setCash(e.target.value)} /></div>
       <div className="form-group"><label className="form-label">Безналичные, ₽</label><input type="tel" inputMode="decimal" className="form-input" value={cashless} onChange={e => setCashless(e.target.value)} /></div>
-      <button className="btn btn-secondary" onClick={handleCalc} style={{ marginBottom: 16 }}>Рассчитать недостающее</button>
+      <button className="btn btn-secondary" onClick={handleCalc} style={{ marginBottom: 16 }}>Рассчитать</button>
       <div className="form-group"><label className="form-label">Внесение, ₽</label><input type="tel" inputMode="decimal" className="form-input" value={deposit} onChange={e => setDeposit(e.target.value)} /></div>
 
       <div className="form-group">
         <label className="form-label">Расход, ₽</label>
         <div className="form-input" style={{ background: 'var(--surface)', color: 'var(--text-secondary)' }}>
-          {shift.expense.toLocaleString('ru-RU')} ₽ (по операциям)
+          {opsExpense.toLocaleString('ru-RU')} ₽ (по операциям)
         </div>
       </div>
 
