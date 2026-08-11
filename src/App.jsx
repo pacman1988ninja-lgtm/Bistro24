@@ -7,12 +7,13 @@ import ShiftDetail from './pages/ShiftDetail';
 import EditShift from './pages/EditShift';
 import Operations from './pages/Operations';
 import NewOperation from './pages/NewOperation';
+import EditOperation from './pages/EditOperation';
+import AllOperations from './pages/AllOperations';
 import CloseShift from './pages/CloseShift';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import References from './pages/References';
 import Users from './pages/Users';
-import EditOperation from './pages/EditOperation';
 import BottomNav from './components/BottomNav';
 
 function App() {
@@ -52,9 +53,9 @@ function App() {
             <Route path="/shift/:id" element={<ShiftDetail user={user} />} />
             <Route path="/shift/:id/edit" element={<EditShift user={user} />} />
             <Route path="/shift/:id/operations" element={<Operations user={user} />} />
-            <Route path="/shift/:id/operations/:opId/edit" element={<EditOperation user={user} />} />
             <Route path="/shift/:id/operations/new" element={<NewOperation user={user} />} />
-            <Route path="/shift/:id/close" element={<CloseShift user={user} />} />
+            <Route path="/shift/:id/operations/:opId/edit" element={<EditOperation user={user} />} />
+            <Route path="/operations" element={<AllOperations user={user} />} />
             <Route path="/reports" element={<Reports user={user} />} />
             <Route path="/settings" element={<Settings user={user} />} />
             <Route path="/references" element={<References user={user} />} />

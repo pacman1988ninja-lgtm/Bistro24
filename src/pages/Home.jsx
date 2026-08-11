@@ -8,12 +8,15 @@ export default function Home({ user }) {
   const navigate = useNavigate();
   const [shifts, setShifts] = useState([]);
   const [openShift, setOpenShift] = useState(null);
+  const [users, setUsers] = useState([]);
   const [stats, setStats] = useState({ today: 0, week: 0 });
 
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     const all = await store.getShifts();
+    const u = await store.getUsers();
+    setUsers(u);
     const sorted = all.sort((a, b) => new Date(b.openDate) - new Date(a.openDate));
     setShifts(sorted);
     const open = sorted.find(s => s.status === 'Открыта');
@@ -30,6 +33,8 @@ export default function Home({ user }) {
       });
     }
   };
+
+  const getUserName = (id) => users.find(u => u.id === id)?.fullName || '—';
 
   const handleCreate = async () => {
     if (user.role === 'seller' && openShift) {
@@ -64,6 +69,11 @@ export default function Home({ user }) {
               <span className="badge badge-open">Открыта</span>
               <h3 style={{ marginTop: 8 }}>Смена #{openShift.id.slice(-4)}</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{new Date(openShift.openDate).toLocaleString('ru-RU')}</p>
+              <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {openShift.employeeIds?.map(eid => (
+                  <span key={eid} style={{ background: 'var(--surface-light)', padding: '2px 8px', borderRadius: 12, fontSize: 12 }}>{getUserName(eid)}</span>
+                ))}
+              </div>
             </div>
             <ArrowRight size={24} color="var(--text-secondary)" />
           </div>
@@ -89,6 +99,11 @@ export default function Home({ user }) {
               <span className="badge badge-closed">Закрыта</span>
               <h3 style={{ marginTop: 8 }}>Смена #{shift.id.slice(-4)}</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{new Date(shift.openDate).toLocaleDateString('ru-RU')}</p>
+              <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {shift.employeeIds?.map(eid => (
+                  <span key={eid} style={{ background: 'var(--surface-light)', padding: '2px 8px', borderRadius: 12, fontSize: 11, color: 'var(--text-secondary)' }}>{getUserName(eid)}</span>
+                ))}
+              </div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 20, fontWeight: 700 }}>{shift.revenue.toLocaleString('ru-RU')} ₽</div>

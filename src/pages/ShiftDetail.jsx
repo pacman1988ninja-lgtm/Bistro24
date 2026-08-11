@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { store } from '../store';
-import { ArrowLeft, Receipt, Lock, List, AlertCircle, Edit3, History, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Receipt, Lock, List, AlertCircle, Edit3, History, Trash2, ChevronDown, ChevronUp, UserPlus, X } from 'lucide-react';
 
 export default function ShiftDetail({ user }) {
   const { id } = useParams();
@@ -9,7 +9,9 @@ export default function ShiftDetail({ user }) {
   const [shift, setShift] = useState(null);
   const [ops, setOps] = useState([]);
   const [audit, setAudit] = useState([]);
+  const [users, setUsers] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [showAddEmp, setShowAddEmp] = useState(false);
 
   useEffect(() => { load(); }, [id]);
 
@@ -17,9 +19,11 @@ export default function ShiftDetail({ user }) {
     const s = await store.getShift(id);
     const o = await store.getOperationsByShift(id);
     const a = await store.getAuditLog('shift', id);
+    const u = await store.getUsers();
     setShift(s);
     setOps(o);
     setAudit(a);
+    setUsers(u);
   };
 
   const handleDelete = async () => {
@@ -29,13 +33,28 @@ export default function ShiftDetail({ user }) {
     else alert('Нет прав на удаление или срок редактирования истёк');
   };
 
+  const handleAddEmployee = async (empId) => {
+    await store.addEmployeeToShift(id, empId);
+    setShowAddEmp(false);
+    load();
+  };
+
+  const handleRemoveEmployee = async (empId) => {
+    if (!confirm('Убрать сотрудника из смены?')) return;
+    await store.removeEmployeeFromShift(id, empId);
+    load();
+  };
+
   if (!shift) return <div className="empty-state">Загрузка...</div>;
 
   const totalIncome = ops.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
   const totalExpense = ops.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
-  const canEdit = shift.status === 'Открыта' && (shift.employeeId === user.id || user.role !== 'seller');
+  const canEdit = shift.status === 'Открыта' && (shift.employeeIds?.includes(user.id) || user.role !== 'seller');
   const canModifyClosed = store.canEditShift(shift, user);
   const isOwner = user.role === 'owner';
+
+  const getUserName = (eid) => users.find(u => u.id === eid)?.fullName || '—';
+  const availableUsers = users.filter(u => u.active && !shift.employeeIds?.includes(u.id));
 
   return (
     <div>
@@ -69,6 +88,36 @@ export default function ShiftDetail({ user }) {
           <span>Открыта: {new Date(shift.openDate).toLocaleString('ru-RU')}</span>
           {shift.closeDate && <span>Закрыта: {new Date(shift.closeDate).toLocaleString('ru-RU')}</span>}
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-title">Сотрудники смены</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+          {shift.employeeIds?.map(eid => (
+            <div key={eid} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--surface-light)', padding: '6px 12px', borderRadius: 20, fontSize: 13 }}>
+              {getUserName(eid)}
+              {shift.status === 'Открыта' && canEdit && shift.employeeIds.length > 1 && (
+                <button onClick={() => handleRemoveEmployee(eid)} style={{ background: 'none', border: 'none', color: 'var(--danger)', padding: 0, marginLeft: 4 }}><X size={14} /></button>
+              )}
+            </div>
+          ))}
+        </div>
+        {shift.status === 'Открыта' && canEdit && (
+          <>
+            <button className="btn btn-secondary" onClick={() => setShowAddEmp(!showAddEmp)} style={{ padding: 10, fontSize: 13 }}>
+              <UserPlus size={14} style={{ marginRight: 4 }} /> Добавить сотрудника
+            </button>
+            {showAddEmp && (
+              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {availableUsers.map(u => (
+                  <button key={u.id} onClick={() => handleAddEmployee(u.id)} className="btn btn-secondary" style={{ justifyContent: 'flex-start', padding: 10, fontSize: 13 }}>
+                    {u.fullName}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <div className="stats-grid">

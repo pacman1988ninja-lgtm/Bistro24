@@ -221,7 +221,7 @@ export const store = {
 
   async getOpenShiftByUser(userId) {
     const shifts = await dbGetAll('shifts');
-    return shifts.find((s) => s.status === 'Открыта' && s.employeeId === userId);
+    return shifts.find((s) => s.status === 'Открыта' && s.employeeIds?.includes(userId));
   },
 
   async createShift(employeeId) {
@@ -235,8 +235,7 @@ export const store = {
     const shift = {
       id: generateId(),
       openDate: nowISO(),
-      employeeId,
-      employee2Id: null,
+      employeeIds: [employeeId],
       startBalance,
       revenue: 0,
       cash: 0,
@@ -251,16 +250,32 @@ export const store = {
       version: 1,
     };
     await dbPut('shifts', shift);
-    await logAudit(employeeId, 'CREATE', 'shift', shift.id, { startBalance });
+    await logAudit(employeeId, 'CREATE', 'shift', shift.id, { startBalance, employeeIds: [employeeId] });
+    return shift;
+  },
+
+  async addEmployeeToShift(shiftId, employeeId) {
+    const shift = await dbGet('shifts', shiftId);
+    if (!shift || shift.status !== 'Открыта') return null;
+    if (!shift.employeeIds.includes(employeeId)) {
+      shift.employeeIds.push(employeeId);
+      await dbPut('shifts', shift);
+    }
+    return shift;
+  },
+
+  async removeEmployeeFromShift(shiftId, employeeId) {
+    const shift = await dbGet('shifts', shiftId);
+    if (!shift || shift.status !== 'Открыта') return null;
+    shift.employeeIds = shift.employeeIds.filter(id => id !== employeeId);
+    await dbPut('shifts', shift);
     return shift;
   },
 
   async closeShift(shiftId, values, userId) {
     const shift = await dbGet('shifts', shiftId);
     if (!shift) return null;
-
     const oldData = { ...shift };
-
     shift.revenue = Number(values.revenue) || 0;
     shift.cash = Number(values.cash) || 0;
     shift.cashless = Number(values.cashless) || 0;
@@ -271,18 +286,15 @@ export const store = {
     shift.closeDate = nowISO();
     shift.comment = values.comment || '';
     shift.version = (shift.version || 1) + 1;
-
-    // editDeadline по роли
     const user = await dbGet('users', userId);
     const now = Date.now();
     if (user?.role === 'seller') {
-      shift.editDeadline = now + 3 * 3600000; // 3 часа
+      shift.editDeadline = now + 3 * 3600000;
     } else if (user?.role === 'manager') {
-      shift.editDeadline = now + 7 * 86400000; // 7 дней
+      shift.editDeadline = now + 7 * 86400000;
     } else {
-      shift.editDeadline = now + 365 * 86400000 * 100; // бессрочно (100 лет)
+      shift.editDeadline = now + 365 * 86400000 * 100;
     }
-
     await dbPut('shifts', shift);
     await logAudit(userId, 'CLOSE', 'shift', shiftId, { old: oldData, new: { revenue: shift.revenue, cash: shift.cash, cashless: shift.cashless, expense: shift.expense, endBalance: shift.endBalance } });
     return shift;
@@ -293,9 +305,7 @@ export const store = {
     if (!shift) return null;
     if (shift.status !== 'Закрыта') return null;
     if (shift.editDeadline && Date.now() > shift.editDeadline) return null;
-
     const oldData = { ...shift };
-
     shift.revenue = Number(values.revenue) ?? shift.revenue;
     shift.cash = Number(values.cash) ?? shift.cash;
     shift.cashless = Number(values.cashless) ?? shift.cashless;
@@ -304,7 +314,6 @@ export const store = {
     shift.endBalance = shift.startBalance + shift.cash + shift.deposit - shift.expense;
     shift.comment = values.comment ?? shift.comment;
     shift.version = (shift.version || 1) + 1;
-
     await dbPut('shifts', shift);
     await logAudit(userId, 'UPDATE', 'shift', shiftId, { old: oldData, new: values });
     return shift;
@@ -408,6 +417,10 @@ export const store = {
       .filter(o => o.shiftId === shiftId && o.type === 'income')
       .filter(o => o.paymentFormId === cashFormId)
       .reduce((sum, o) => sum + o.amount, 0);
+  },
+
+  async getAllOperations() {
+    return dbGetAll('operations');
   },
 
   async addOperation(op, userId) {

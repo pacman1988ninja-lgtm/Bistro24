@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, BarChart2, Settings, Users } from 'lucide-react';
+import { Home, BarChart2, Settings, Users, FileText } from 'lucide-react';
 
 export default function BottomNav({ user }) {
   if (!user) return null;
@@ -10,6 +10,9 @@ export default function BottomNav({ user }) {
     <nav className="bottom-nav">
       <NavLink to="/" className={({ isActive }) => 'nav-item' + (isActive ? ' active' : '')} end>
         <Home size={22} /><span>Смены</span>
+      </NavLink>
+      <NavLink to="/operations" className={({ isActive }) => 'nav-item' + (isActive ? ' active' : '')}>
+        <FileText size={22} /><span>Операции</span>
       </NavLink>
       {isManager && (
         <NavLink to="/reports" className={({ isActive }) => 'nav-item' + (isActive ? ' active' : '')}>
