@@ -8,61 +8,51 @@ export default function EditShift({ user }) {
   const navigate = useNavigate();
   const [shift, setShift] = useState(null);
   const [opsExpense, setOpsExpense] = useState(0);
+  const [opsIncome, setOpsIncome] = useState(0);
   const [revenue, setRevenue] = useState('');
   const [cash, setCash] = useState('');
   const [cashless, setCashless] = useState('');
-  const [deposit, setDeposit] = useState('');
   const [comment, setComment] = useState('');
 
   useEffect(() => {
     store.getShift(id).then(async s => {
       if (!s || s.status !== 'Закрыта') return navigate('/');
       if (!store.canEditShift(s, user)) return navigate('/');
-      
-      // Пересчёт расхода из операций
       const ops = await store.getOperationsByShift(id);
       const refs = await store.getReferences();
       const cashFormId = refs.paymentForms?.find(p => p.name === 'Наличные')?.id;
-      const total = ops
-        .filter(o => o.type === 'expense')
-        .filter(o => o.paymentFormId === cashFormId)
-        .reduce((sum, o) => sum + o.amount, 0);
-      
+      const expTotal = ops.filter(o => o.type === 'expense').filter(o => o.paymentFormId === cashFormId).reduce((sum, o) => sum + o.amount, 0);
+      const incTotal = ops.filter(o => o.type === 'income').filter(o => o.paymentFormId === cashFormId).reduce((sum, o) => sum + o.amount, 0);
       setShift(s);
-      setOpsExpense(total);
+      setOpsExpense(expTotal);
+      setOpsIncome(incTotal);
       setRevenue(String(s.revenue || 0));
       setCash(String(s.cash || 0));
       setCashless(String(s.cashless || 0));
-      setDeposit(String(s.deposit || 0));
       setComment(s.comment || '');
     });
   }, [id, user, navigate]);
 
   if (!shift) return null;
 
-  const calculated = Number(shift.startBalance) + Number(cash || 0) + Number(deposit || 0) - opsExpense;
+  const calculated = Number(shift.startBalance) + Number(cash || 0) + opsIncome - opsExpense;
   const revenueMatch = Number(revenue || 0) === (Number(cash || 0) + Number(cashless || 0));
 
   const handleCalc = () => {
     const nRev = Number(revenue);
     const nCash = Number(cash);
     const nCashless = Number(cashless);
-    if (cash !== '' && cashless !== '') {
-      setRevenue(String(nCash + nCashless));
-    } else if (revenue !== '' && cash !== '') {
-      setCashless(String(nRev - nCash));
-    } else if (revenue !== '' && cashless !== '') {
-      setCash(String(nRev - nCashless));
-    } else {
-      alert('Заполните хотя бы два поля');
-    }
+    if (cash !== '' && cashless !== '') setRevenue(String(nCash + nCashless));
+    else if (revenue !== '' && cash !== '') setCashless(String(nRev - nCash));
+    else if (revenue !== '' && cashless !== '') setCash(String(nRev - nCashless));
+    else alert('Заполните хотя бы два поля');
   };
 
   const handleSave = async () => {
     if (!revenueMatch && Number(revenue) > 0) {
       if (!confirm('Выручка не равна сумме наличных и безнала. Продолжить?')) return;
     }
-    await store.updateShift(id, { revenue, cash, cashless, deposit, comment }, user.id);
+    await store.updateShift(id, { revenue, cash, cashless, deposit: opsIncome, comment }, user.id);
     navigate(`/shift/${id}`);
   };
 
@@ -83,12 +73,18 @@ export default function EditShift({ user }) {
       <div className="form-group"><label className="form-label">Наличные, ₽</label><input type="tel" inputMode="decimal" className="form-input" value={cash} onChange={e => setCash(e.target.value)} /></div>
       <div className="form-group"><label className="form-label">Безналичные, ₽</label><input type="tel" inputMode="decimal" className="form-input" value={cashless} onChange={e => setCashless(e.target.value)} /></div>
       <button className="btn btn-secondary" onClick={handleCalc} style={{ marginBottom: 16 }}>Рассчитать</button>
-      <div className="form-group"><label className="form-label">Внесение, ₽</label><input type="tel" inputMode="decimal" className="form-input" value={deposit} onChange={e => setDeposit(e.target.value)} /></div>
 
       <div className="form-group">
-        <label className="form-label">Расход, ₽</label>
-        <div className="form-input" style={{ background: 'var(--surface)', color: 'var(--text-secondary)' }}>
-          {opsExpense.toLocaleString('ru-RU')} ₽ (по операциям)
+        <label className="form-label">Приход (наличные операции), ₽</label>
+        <div className="form-input" style={{ background: 'var(--surface)', color: 'var(--success)' }}>
+          +{opsIncome.toLocaleString('ru-RU')} ₽ (по операциям)
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">Расход (наличные операции), ₽</label>
+        <div className="form-input" style={{ background: 'var(--surface)', color: 'var(--danger)' }}>
+          -{opsExpense.toLocaleString('ru-RU')} ₽ (по операциям)
         </div>
       </div>
 

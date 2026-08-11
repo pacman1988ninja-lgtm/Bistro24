@@ -312,7 +312,12 @@ export const store = {
 
   canEditShift(shift, user) {
     if (!shift || shift.status !== 'Закрыта') return false;
-    if (!shift.editDeadline) return false;
+    // Fallback для старых смен без editDeadline
+    if (!shift.editDeadline) {
+      if (user.role === 'owner') return true;
+      if (user.role === 'manager') return true;
+      return false;
+    }
     if (Date.now() > shift.editDeadline) return false;
     if (user.role === 'owner') return true;
     if (user.role === 'manager') return true;
@@ -323,9 +328,14 @@ export const store = {
   async deleteShift(id, userId) {
     const shift = await dbGet('shifts', id);
     if (!shift) return false;
-    // Открытую смену можно удалить всегда (если своя)
+    // Открытую смену можно удалить (свою или если manager/owner)
     if (shift.status === 'Открыта') {
-      if (shift.employeeId !== userId) return false;
+      const user = await dbGet('users', userId);
+      if (user.role === 'owner' || user.role === 'manager') {
+        // owner/manager может удалить любую открытую
+      } else if (shift.employeeId && shift.employeeId !== userId) {
+        return false;
+      }
       const ops = await dbGetAll('operations');
       for (const op of ops.filter(o => o.shiftId === id)) {
         await dbDelete('operations', op.id);
@@ -388,6 +398,16 @@ export const store = {
   async getOperationsByShift(shiftId) {
     const ops = await dbGetAll('operations');
     return ops.filter((o) => o.shiftId === shiftId).sort((a, b) => new Date(b.date) - new Date(a.date));
+  },
+
+  async getIncomeTotalByShift(shiftId) {
+    const ops = await dbGetAll('operations');
+    const refs = await this.getReferences();
+    const cashFormId = refs.paymentForms?.find(p => p.name === 'Наличные')?.id;
+    return ops
+      .filter(o => o.shiftId === shiftId && o.type === 'income')
+      .filter(o => o.paymentFormId === cashFormId)
+      .reduce((sum, o) => sum + o.amount, 0);
   },
 
   async addOperation(op, userId) {

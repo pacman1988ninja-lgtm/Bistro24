@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { store } from '../store';
-import { ArrowLeft, Plus, Edit3, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 
 export default function Operations({ user }) {
   const { id } = useParams();
@@ -30,7 +30,8 @@ export default function Operations({ user }) {
     setPhotos(ph);
   };
 
-  const handleDelete = async (opId) => {
+  const handleDelete = async (opId, e) => {
+    e.stopPropagation();
     if (!confirm('Удалить операцию?')) return;
     await store.deleteOperation(opId, user.id);
     load();
@@ -55,7 +56,7 @@ export default function Operations({ user }) {
       {ops.length === 0 && <div className="empty-state">Нет операций</div>}
 
       {ops.map(op => (
-        <div key={op.id} className="card" style={{ marginBottom: 12 }}>
+        <div key={op.id} className="card" style={{ marginBottom: 12, cursor: canEdit ? 'pointer' : 'default' }} onClick={() => canEdit && navigate(`/shift/${id}/operations/${op.id}/edit`)}>
           <div className="list-item" style={{ marginBottom: 0, padding: 0, background: 'none', border: 'none' }}>
             <div className="list-item-info">
               <h3>{getName('expenseTypes', op.expenseTypeId) || (op.type === 'income' ? 'Поступление' : 'Расход')}</h3>
@@ -67,10 +68,9 @@ export default function Operations({ user }) {
                 {op.type === 'income' ? '+' : '-'}{op.amount.toLocaleString('ru-RU')} ₽
               </div>
               {canEdit && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <button onClick={() => navigate(`/shift/${id}/operations/${op.id}/edit`)} style={{ background: 'var(--surface-light)', border: 'none', borderRadius: 6, padding: 6, color: 'var(--text)' }}><Edit3 size={14} /></button>
-                  <button onClick={() => handleDelete(op.id)} style={{ background: 'var(--danger)', border: 'none', borderRadius: 6, padding: 6, color: '#fff' }}><Trash2 size={14} /></button>
-                </div>
+                <button onClick={(e) => handleDelete(op.id, e)} style={{ background: 'var(--danger)', border: 'none', borderRadius: 6, padding: 8, color: '#fff' }}>
+                  <Trash2 size={14} />
+                </button>
               )}
             </div>
           </div>

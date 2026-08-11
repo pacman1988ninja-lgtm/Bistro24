@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { store } from '../store';
-import { ArrowLeft, Receipt, Lock, List, AlertCircle, Edit3, History, Trash2 } from 'lucide-react';
+import { ArrowLeft, Receipt, Lock, List, AlertCircle, Edit3, History, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function ShiftDetail({ user }) {
   const { id } = useParams();
@@ -9,6 +9,7 @@ export default function ShiftDetail({ user }) {
   const [shift, setShift] = useState(null);
   const [ops, setOps] = useState([]);
   const [audit, setAudit] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => { load(); }, [id]);
 
@@ -34,6 +35,7 @@ export default function ShiftDetail({ user }) {
   const totalExpense = ops.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
   const canEdit = shift.status === 'Открыта' && (shift.employeeId === user.id || user.role !== 'seller');
   const canModifyClosed = store.canEditShift(shift, user);
+  const isOwner = user.role === 'owner';
 
   return (
     <div>
@@ -43,16 +45,23 @@ export default function ShiftDetail({ user }) {
           <h1 style={{ fontSize: 22 }}>Смена #{shift.id.slice(-4)}</h1>
           <span className={'badge ' + (shift.status === 'Открыта' ? 'badge-open' : 'badge-closed')}>{shift.status}</span>
         </div>
-        {shift.status === 'Закрыта' && canModifyClosed && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => navigate(`/shift/${id}/edit`)} style={{ background: 'var(--warning)', border: 'none', borderRadius: 8, padding: '8px 12px', color: '#000', fontSize: 12, fontWeight: 600 }}>
-              <Edit3 size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />Изменить
-            </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {shift.status === 'Закрыта' && canModifyClosed && (
+            <>
+              <button onClick={() => navigate(`/shift/${id}/edit`)} style={{ background: 'var(--warning)', border: 'none', borderRadius: 8, padding: '8px 12px', color: '#000', fontSize: 12, fontWeight: 600 }}>
+                <Edit3 size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />Изменить
+              </button>
+              <button onClick={handleDelete} style={{ background: 'var(--danger)', border: 'none', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 12, fontWeight: 600 }}>
+                <Trash2 size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />Удалить
+              </button>
+            </>
+          )}
+          {shift.status === 'Открыта' && (
             <button onClick={handleDelete} style={{ background: 'var(--danger)', border: 'none', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 12, fontWeight: 600 }}>
               <Trash2 size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />Удалить
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="card" style={{ marginBottom: 12 }}>
@@ -93,22 +102,35 @@ export default function ShiftDetail({ user }) {
         <button className="btn btn-secondary" onClick={() => navigate(`/shift/${id}/operations`)}><List size={18} /> Журнал операций</button>
       </div>
 
-      {audit.length > 0 && (
+      {isOwner && audit.length > 0 && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-title"><History size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} /> История изменений</div>
-          {audit.slice(0, 5).map(a => (
-            <div key={a.id} style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4, borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 4 }}>
-              {new Date(a.timestamp).toLocaleString('ru-RU')} — {a.action} {a.details?.new ? `(выручка: ${a.details.new.revenue} ₽)` : ''}
+          <button onClick={() => setShowHistory(!showHistory)} style={{ background: 'none', border: 'none', color: 'var(--text)', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 0 }}>
+            <div className="card-title" style={{ marginBottom: 0 }}><History size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} /> История изменений</div>
+            {showHistory ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
+          {showHistory && (
+            <div style={{ marginTop: 12 }}>
+              {audit.map(a => (
+                <div key={a.id} style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6, borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{new Date(a.timestamp).toLocaleString('ru-RU')}</span>
+                    <span style={{ color: 'var(--primary)' }}>{a.action}</span>
+                  </div>
+                  <div style={{ marginTop: 2 }}>
+                    {a.details?.new?.revenue !== undefined && `Выручка: ${a.details.new.revenue} ₽`}
+                    {a.details?.new?.cash !== undefined && `, Нал: ${a.details.new.cash} ₽`}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
 
       {canEdit && (
         <>
           <button className="btn btn-primary" onClick={() => navigate(`/shift/${id}/operations/new`)} style={{ marginBottom: 12 }}><Receipt size={18} /> Добавить операцию</button>
-          <button className="btn btn-success" onClick={() => navigate(`/shift/${id}/close`)} style={{ marginBottom: 12 }}><Lock size={18} /> Закрыть смену</button>
-          <button className="btn btn-danger" onClick={handleDelete}><Trash2 size={18} /> Удалить смену</button>
+          <button className="btn btn-success" onClick={() => navigate(`/shift/${id}/close`)} style={{ marginBottom: 40 }}><Lock size={18} /> Закрыть смену</button>
         </>
       )}
     </div>
