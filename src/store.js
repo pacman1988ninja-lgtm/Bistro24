@@ -66,6 +66,20 @@ function nowISO() {
   return new Date().toISOString();
 }
 
+// Безопасный парсинг чисел: понимает запятую как разделитель,
+// при пустом/битом значении возвращает fallback (не NaN).
+function toNum(v, fallback = 0) {
+  if (v === undefined || v === null || v === '') return fallback;
+  const n = Number(String(v).replace(/\s/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+// Список сотрудников смены с обратной совместимостью (старые смены: employeeId)
+function shiftEmployeeIds(shift) {
+  if (Array.isArray(shift.employeeIds)) return shift.employeeIds;
+  return shift.employeeId ? [shift.employeeId] : [];
+}
+
 const DEFAULT_USERS = [
   { id: 'u1', email: 'seller@bistro24.ru', fullName: 'Петрова М.С.', role: 'seller', pin: '1111', active: true },
   { id: 'u2', email: 'manager@bistro24.ru', fullName: 'Иванов А.П.', role: 'manager', pin: '2222', active: true },
@@ -221,11 +235,14 @@ export const store = {
 
   async getOpenShiftByUser(userId) {
     const shifts = await dbGetAll('shifts');
-    return shifts.find((s) => s.status === 'Открыта' && s.employeeIds?.includes(userId));
+    return shifts.find((s) => s.status === 'Открыта' && shiftEmployeeIds(s).includes(userId));
   },
 
   async createShift(employeeId) {
     const shifts = await dbGetAll('shifts');
+    // Защита от второй открытой смены — иначе «последняя закрытая» и перенос остатков ломаются
+    if (shifts.some((s) => s.status === 'Открыта')) return null;
+
     const closed = shifts
       .filter((s) => s.status === 'Закрыта')
       .sort((a, b) => new Date(b.closeDate || b.openDate) - new Date(a.closeDate || a.openDate));
@@ -257,6 +274,7 @@ export const store = {
   async addEmployeeToShift(shiftId, employeeId) {
     const shift = await dbGet('shifts', shiftId);
     if (!shift || shift.status !== 'Открыта') return null;
+    shift.employeeIds = shiftEmployeeIds(shift);
     if (!shift.employeeIds.includes(employeeId)) {
       shift.employeeIds.push(employeeId);
       await dbPut('shifts', shift);
@@ -267,20 +285,20 @@ export const store = {
   async removeEmployeeFromShift(shiftId, employeeId) {
     const shift = await dbGet('shifts', shiftId);
     if (!shift || shift.status !== 'Открыта') return null;
-    shift.employeeIds = shift.employeeIds.filter(id => id !== employeeId);
+    shift.employeeIds = shiftEmployeeIds(shift).filter(id => id !== employeeId);
     await dbPut('shifts', shift);
     return shift;
   },
 
   async closeShift(shiftId, values, userId) {
     const shift = await dbGet('shifts', shiftId);
-    if (!shift) return null;
+    if (!shift || shift.status !== 'Открыта') return null;
     const oldData = { ...shift };
-    shift.revenue = Number(values.revenue) || 0;
-    shift.cash = Number(values.cash) || 0;
-    shift.cashless = Number(values.cashless) || 0;
-    shift.deposit = Number(values.deposit) || 0;
-    shift.expense = Number(values.expense) || 0;
+    shift.revenue = toNum(values.revenue);
+    shift.cash = toNum(values.cash);
+    shift.cashless = toNum(values.cashless);
+    shift.deposit = toNum(values.deposit);
+    shift.expense = toNum(values.expense);
     shift.endBalance = shift.startBalance + shift.cash + shift.deposit - shift.expense;
     shift.status = 'Закрыта';
     shift.closeDate = nowISO();
@@ -306,11 +324,12 @@ export const store = {
     if (shift.status !== 'Закрыта') return null;
     if (shift.editDeadline && Date.now() > shift.editDeadline) return null;
     const oldData = { ...shift };
-    shift.revenue = Number(values.revenue) ?? shift.revenue;
-    shift.cash = Number(values.cash) ?? shift.cash;
-    shift.cashless = Number(values.cashless) ?? shift.cashless;
-    shift.deposit = Number(values.deposit) ?? shift.deposit;
-    shift.expense = Number(values.expense) ?? shift.expense;
+    // toNum с fallback на текущее значение: частичное обновление не превращает поля в NaN
+    shift.revenue = toNum(values.revenue, shift.revenue);
+    shift.cash = toNum(values.cash, shift.cash);
+    shift.cashless = toNum(values.cashless, shift.cashless);
+    shift.deposit = toNum(values.deposit, shift.deposit);
+    shift.expense = toNum(values.expense, shift.expense);
     shift.endBalance = shift.startBalance + shift.cash + shift.deposit - shift.expense;
     shift.comment = values.comment ?? shift.comment;
     shift.version = (shift.version || 1) + 1;
@@ -330,7 +349,8 @@ export const store = {
     if (Date.now() > shift.editDeadline) return false;
     if (user.role === 'owner') return true;
     if (user.role === 'manager') return true;
-    if (user.role === 'seller' && shift.employeeId === user.id) return true;
+    // Продавец — только если он в смене (employeeIds, с обратной совместимостью)
+    if (user.role === 'seller' && shiftEmployeeIds(shift).includes(user.id)) return true;
     return false;
   },
 
@@ -342,7 +362,7 @@ export const store = {
       const user = await dbGet('users', userId);
       if (user.role === 'owner' || user.role === 'manager') {
         // owner/manager может удалить любую открытую
-      } else if (shift.employeeId && shift.employeeId !== userId) {
+      } else if (!shiftEmployeeIds(shift).includes(userId)) {
         return false;
       }
       const ops = await dbGetAll('operations');
@@ -379,7 +399,7 @@ export const store = {
     const op = await dbGet('operations', opId);
     if (!op) return null;
     const oldData = { ...op };
-    op.amount = Number(values.amount) ?? op.amount;
+    op.amount = toNum(values.amount, op.amount);
     op.type = values.type ?? op.type;
     op.expenseTypeId = values.expenseTypeId ?? op.expenseTypeId;
     op.contractorId = values.contractorId ?? op.contractorId;
@@ -428,7 +448,7 @@ export const store = {
       id: generateId(),
       date: nowISO(),
       shiftId: op.shiftId,
-      amount: Number(op.amount),
+      amount: toNum(op.amount),
       type: op.type,
       expenseTypeId: op.expenseTypeId || null,
       contractorId: op.contractorId || null,

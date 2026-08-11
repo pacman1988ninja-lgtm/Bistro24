@@ -15,7 +15,11 @@ export default function CloseShift({ user }) {
   const [comment, setComment] = useState('');
 
   useEffect(() => {
-    store.getShift(id).then(setShift);
+    store.getShift(id).then(s => {
+      // Закрывать можно только открытую смену (защита от повторного закрытия по прямой ссылке)
+      if (!s || s.status !== 'Открыта') return navigate('/');
+      setShift(s);
+    });
     store.getOperationsByShift(id).then(async ops => {
       const refs = await store.getReferences();
       const cashFormId = refs.paymentForms?.find(p => p.name === 'Наличные')?.id;
@@ -30,7 +34,7 @@ export default function CloseShift({ user }) {
       setOpsExpense(expTotal);
       setOpsIncome(incTotal);
     });
-  }, [id]);
+  }, [id, navigate]);
 
   if (!shift) return null;
 

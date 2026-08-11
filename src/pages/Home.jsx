@@ -37,12 +37,18 @@ export default function Home({ user }) {
   const getUserName = (id) => users.find(u => u.id === id)?.fullName || '—';
 
   const handleCreate = async () => {
-    if (user.role === 'seller' && openShift) {
-      alert('У вас уже есть открытая смена!');
+    // Одна открытая смена на всех: если есть — переходим в неё
+    if (openShift) {
+      alert('Уже есть открытая смена. Сначала закройте её.');
       navigate(`/shift/${openShift.id}`);
       return;
     }
     const shift = await store.createShift(user.id);
+    if (!shift) {
+      alert('Не удалось создать смену: уже есть открытая смена');
+      loadData();
+      return;
+    }
     navigate(`/shift/${shift.id}`);
   };
 

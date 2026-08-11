@@ -52,7 +52,8 @@ export default function EditShift({ user }) {
     if (!revenueMatch && Number(revenue) > 0) {
       if (!confirm('Выручка не равна сумме наличных и безнала. Продолжить?')) return;
     }
-    await store.updateShift(id, { revenue, cash, cashless, deposit: opsIncome, comment }, user.id);
+    // expense передаём всегда — иначе store.updateShift получал undefined и ломал endBalance
+    await store.updateShift(id, { revenue, cash, cashless, deposit: opsIncome, expense: opsExpense, comment }, user.id);
     navigate(`/shift/${id}`);
   };
 
