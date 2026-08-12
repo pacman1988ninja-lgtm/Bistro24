@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bistro24-v2';
+const CACHE_NAME = 'bistro24-v3';
 const BASE = '/Bistro24/';
 const STATIC_ASSETS = [
   BASE,

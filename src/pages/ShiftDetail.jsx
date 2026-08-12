@@ -78,6 +78,13 @@ export default function ShiftDetail({ user }) {
     const tid = getEmpType(empId);
     return tid ? refs.shiftTypes?.find(t => t.id === tid)?.name : null;
   };
+  // Типы смен, разрешённые конкретному сотруднику (его личные смены)
+  const allowedTypesFor = (empId) => {
+    const emp = refs.employees?.find(e => e.id === empId);
+    return (refs.shiftTypes || []).filter(t =>
+      t.active && (!emp?.shiftTypes?.length || emp.shiftTypes.includes(t.id))
+    );
+  };
 
   const totalIncome = ops.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
   const totalExpense = ops.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
@@ -136,7 +143,7 @@ export default function ShiftDetail({ user }) {
                     style={{ padding: '4px 6px', fontSize: 11, borderRadius: 6 }}
                   >
                     <option value="">Тип...</option>
-                    {refs.shiftTypes?.filter(t => t.active).map(t => (
+                    {allowedTypesFor(eid).map(t => (
                       <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
                   </select>
