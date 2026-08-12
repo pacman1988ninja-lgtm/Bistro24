@@ -1,5 +1,8 @@
 const DB_NAME = 'Bistro24DB';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
+
+// Хранилища, которые синхронизируются с GitHub (photos — только локально)
+const SYNCED_STORES = ['shifts', 'operations', 'users', 'references'];
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -14,6 +17,7 @@ function openDB() {
       if (!db.objectStoreNames.contains('users')) db.createObjectStore('users', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('references')) db.createObjectStore('references', { keyPath: 'key' });
       if (!db.objectStoreNames.contains('audit')) db.createObjectStore('audit', { keyPath: 'id', autoIncrement: true });
+      if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
     };
   });
 }
@@ -38,7 +42,58 @@ async function dbGetAll(store) {
   });
 }
 
+// Уведомление о локальных изменениях (для автосинхронизации)
+let changeListener = null;
+export function setChangeListener(fn) {
+  changeListener = fn;
+}
+function notifyChange() {
+  if (changeListener) {
+    try { changeListener(); } catch { /* ignore */ }
+  }
+}
+
+// Запись с простановкой метки времени изменения (__ut) и уведомлением
 async function dbPut(store, data) {
+  if (SYNCED_STORES.includes(store)) {
+    data.__ut = Date.now();
+  }
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).put(data);
+    req.onsuccess = () => {
+      if (SYNCED_STORES.includes(store)) notifyChange();
+      resolve(req.result);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// Удаление с записью «надгробия» (tombstone) для синхронизации удалений
+async function dbDelete(store, key) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).delete(key);
+    req.onsuccess = async () => {
+      if (SYNCED_STORES.includes(store)) {
+        try {
+          const meta = await dbGet('meta', 'tombstones');
+          const map = meta?.map || {};
+          map[`${store}:${key}`] = Date.now();
+          await dbPutRaw('meta', { key: 'tombstones', map });
+          notifyChange();
+        } catch { /* ignore */ }
+      }
+      resolve();
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// «Сырые» операции без меток/уведомлений — для сидирования и мержа синхронизации
+async function dbPutRaw(store, data) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readwrite');
@@ -48,7 +103,7 @@ async function dbPut(store, data) {
   });
 }
 
-async function dbDelete(store, key) {
+async function dbDeleteRaw(store, key) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readwrite');
@@ -57,6 +112,18 @@ async function dbDelete(store, key) {
     req.onerror = () => reject(req.error);
   });
 }
+
+// Низкоуровневый доступ для модуля синхронизации
+export const _raw = {
+  get: dbGet,
+  getAll: dbGetAll,
+  putRaw: dbPutRaw,
+  deleteRaw: dbDeleteRaw,
+  async getTombstones() {
+    const meta = await dbGet('meta', 'tombstones');
+    return meta?.map || {};
+  },
+};
 
 function generateId() {
   return 'id_' + Math.random().toString(36).slice(2, 9) + '_' + Date.now();
@@ -118,11 +185,12 @@ const DEFAULT_REFS = {
 async function initDefaults() {
   const existing = await dbGetAll('users');
   if (existing.length === 0) {
-    for (const u of DEFAULT_USERS) await dbPut('users', u);
+    // __ut = 0: сидированные записи всегда проигрывают данным из синхронизации
+    for (const u of DEFAULT_USERS) await dbPutRaw('users', { ...u, __ut: 0 });
   }
   const refs = await dbGet('references', 'main');
   if (!refs) {
-    await dbPut('references', { key: 'main', data: DEFAULT_REFS });
+    await dbPutRaw('references', { key: 'main', data: DEFAULT_REFS, __ut: 0 });
   } else {
     const data = refs.data;
     let changed = false;
@@ -163,7 +231,8 @@ async function initDefaults() {
       });
     }
     if (changed || empChanged) {
-      await dbPut('references', { key: 'main', data });
+      refs.data = data;
+      await dbPut('references', refs);
     }
   }
 }
@@ -178,7 +247,7 @@ async function logAudit(userId, action, entityType, entityId, details = {}) {
     entityId,
     details,
   };
-  await dbPut('audit', entry);
+  await dbPutRaw('audit', entry);
 }
 
 async function getAudit(entityType, entityId) {
@@ -231,7 +300,12 @@ export const store = {
   async getCurrentUser() {
     const s = this.getSession();
     if (!s) return null;
-    return dbGet('users', s.userId);
+    const user = await dbGet('users', s.userId);
+    if (!user || !user.active) {
+      localStorage.removeItem('bistro24_session');
+      return null;
+    }
+    return user;
   },
 
   logout() {
@@ -348,8 +422,13 @@ export const store = {
     return shifts.find((s) => s.status === 'Открыта' && s.employeeIds?.includes(userId));
   },
 
+  // Тип смены — персональный для каждого сотрудника (employeeShiftTypes),
+  // это смена, в которую он вышел; к кассовой «открытой смене» тип не привязан.
   async createShift(employeeId, shiftTypeId) {
     const shifts = await dbGetAll('shifts');
+    // Защита от второй открытой смены — для всех ролей, на уровне хранилища
+    if (shifts.some((s) => s.status === 'Открыта')) return null;
+
     const maxNumber = shifts.reduce((max, s) => Math.max(max, s.shiftNumber || 0), 0);
     const shiftNumber = maxNumber + 1;
 
@@ -377,18 +456,9 @@ export const store = {
       comment: '',
       editDeadline: null,
       version: 1,
-      shiftTypeId: shiftTypeId || null,
     };
     await dbPut('shifts', shift);
     await logAudit(employeeId, 'CREATE', 'shift', shift.id, { startBalance, employeeIds: [employeeId], shiftNumber });
-    return shift;
-  },
-
-  async updateShiftType(shiftId, shiftTypeId) {
-    const shift = await dbGet('shifts', shiftId);
-    if (!shift) return null;
-    shift.shiftTypeId = shiftTypeId;
-    await dbPut('shifts', shift);
     return shift;
   },
 
@@ -581,7 +651,7 @@ export const store = {
       id: generateId(),
       date: nowISO(),
       shiftId: op.shiftId,
-      amount: Number(op.amount),
+      amount: toNum(op.amount),
       type: op.type,
       expenseTypeId: op.expenseTypeId || null,
       contractorId: op.contractorId || null,
@@ -598,7 +668,7 @@ export const store = {
 
   async addPhoto(dataUrl) {
     const photo = { id: generateId(), dataUrl, createdAt: nowISO() };
-    await dbPut('photos', photo);
+    await dbPutRaw('photos', photo);
     return photo;
   },
 
