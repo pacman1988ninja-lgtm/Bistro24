@@ -10,6 +10,7 @@ export default function Home({ user }) {
   const [openShift, setOpenShift] = useState(null);
   const [refs, setRefs] = useState({});
   const [stats, setStats] = useState({ today: 0, week: 0 });
+  const [newShiftType, setNewShiftType] = useState('');
 
   useEffect(() => { loadData(); }, []);
 
@@ -41,14 +42,26 @@ export default function Home({ user }) {
   };
 
   const handleCreate = async () => {
-    if (user.role === 'seller' && openShift) {
-      alert('У вас уже есть открытая смена!');
+    if (openShift) {
       navigate(`/shift/${openShift.id}`);
       return;
     }
-    const shift = await store.createShift(user.id);
+    const shift = await store.createShift(user.id, newShiftType || null);
+    if (!shift) {
+      // Смену уже открыли (возможно, с другого устройства)
+      const os = await store.getOpenShift();
+      await loadData();
+      if (os) navigate(`/shift/${os.id}`);
+      return;
+    }
     navigate(`/shift/${shift.id}`);
   };
+
+  // Доступные текущему сотруднику типы смен (его личная смена, в которую он вышел)
+  const me = refs.employees?.find(e => e.id === user.id);
+  const myShiftTypes = (refs.shiftTypes || []).filter(t =>
+    t.active && (!me?.shiftTypes?.length || me.shiftTypes.includes(t.id))
+  );
 
   const isManager = user.role === 'manager' || user.role === 'owner';
 
@@ -95,8 +108,20 @@ export default function Home({ user }) {
         </div>
       )}
 
+      {!openShift && (
+        <div className="form-group">
+          <label className="form-label">Ваш тип смены</label>
+          <select className="form-select" value={newShiftType} onChange={e => setNewShiftType(e.target.value)}>
+            <option value="">Не выбран</option>
+            {myShiftTypes.map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <button className="btn btn-primary" onClick={handleCreate} style={{ marginBottom: 20 }}>
-        <Plus size={20} /> {openShift ? 'Новая смена' : 'Открыть смену'}
+        <Plus size={20} /> {openShift ? 'Перейти к смене' : 'Открыть смену'}
       </button>
 
       {isManager && <ExportExcel />}

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { store } from './store';
+import { initSync } from './githubSync';
 import Login from './pages/Login';
 import Home from './pages/Home';
 import ShiftDetail from './pages/ShiftDetail';
@@ -21,6 +22,7 @@ function App() {
 
   useEffect(() => {
     store.init().then(() => {
+      initSync(); // GitHub-синхронизация (если настроена), не блокирует запуск
       store.getCurrentUser().then((u) => {
         if (u) setUser(u);
         setLoading(false);
