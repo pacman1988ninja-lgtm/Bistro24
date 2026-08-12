@@ -35,9 +35,9 @@ export default function Home({ user }) {
   };
 
   const getEmpName = (id) => refs.employees?.find(e => e.id === id)?.name || '—';
-  const getShiftTypeName = (shiftId) => {
-    const s = shifts.find(sh => sh.id === shiftId);
-    return refs.shiftTypes?.find(t => t.id === s?.shiftTypeId)?.name || '';
+  const getEmpShiftTypeName = (shift, empId) => {
+    const tid = shift.employeeShiftTypes?.[empId] ?? shift.shiftTypeId ?? null;
+    return tid ? refs.shiftTypes?.find(t => t.id === tid)?.name : null;
   };
 
   const handleCreate = async () => {
@@ -76,8 +76,8 @@ export default function Home({ user }) {
                 {openShift.employeeIds?.map(eid => (
                   <span key={eid} style={{ background: 'var(--surface-light)', padding: '4px 10px', borderRadius: 12, fontSize: 12, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <span>{getEmpName(eid)}</span>
-                    {openShift.shiftTypeId && (
-                      <span style={{ color: 'var(--text-secondary)', fontSize: 10 }}>{refs.shiftTypes?.find(t => t.id === openShift.shiftTypeId)?.name}</span>
+                    {getEmpShiftTypeName(openShift, eid) && (
+                      <span style={{ color: 'var(--text-secondary)', fontSize: 10 }}>{getEmpShiftTypeName(openShift, eid)}</span>
                     )}
                   </span>
                 ))}
@@ -106,24 +106,24 @@ export default function Home({ user }) {
       {shifts.filter(s => s.status === 'Закрыта').slice(0, 10).map(shift => (
         <div key={shift.id} className="card" onClick={() => navigate(`/shift/${shift.id}`)} style={{ cursor: 'pointer' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
+            <div style={{ flex: 1 }}>
               <span className="badge badge-closed">Закрыта</span>
               <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 8 }}>{new Date(shift.openDate).toLocaleDateString('ru-RU')}</p>
+              <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {shift.employeeIds?.map(eid => (
+                  <span key={eid} style={{ background: 'var(--surface-light)', padding: '4px 10px', borderRadius: 12, fontSize: 11, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <span>{getEmpName(eid)}</span>
+                    {getEmpShiftTypeName(shift, eid) && (
+                      <span>{getEmpShiftTypeName(shift, eid)}</span>
+                    )}
+                  </span>
+                ))}
+              </div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>#{shift.shiftNumber || shift.id.slice(-4)}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>{shift.revenue.toLocaleString('ru-RU')} ₽</div>
             </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-              {shift.employeeIds?.map(eid => (
-                <span key={eid} style={{ background: 'var(--surface-light)', padding: '2px 8px', borderRadius: 12, fontSize: 11, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <span>{getEmpName(eid)}</span>
-                  {shift.shiftTypeId && <span>{refs.shiftTypes?.find(t => t.id === shift.shiftTypeId)?.name}</span>}
-                </span>
-              ))}
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>{shift.revenue.toLocaleString('ru-RU')} ₽</div>
           </div>
         </div>
       ))}

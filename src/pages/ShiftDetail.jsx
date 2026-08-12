@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { store } from '../store';
-import { ArrowLeft, Receipt, Lock, List, AlertCircle, Edit3, History, Trash2, ChevronDown, ChevronUp, UserPlus, X } from 'lucide-react';
+import { ArrowLeft, Receipt, Lock, List, AlertCircle, Edit3, History, Trash2, ChevronDown, ChevronUp, UserPlus, X, Check } from 'lucide-react';
 
 export default function ShiftDetail({ user }) {
   const { id } = useParams();
@@ -14,6 +14,8 @@ export default function ShiftDetail({ user }) {
   const [showAddEmp, setShowAddEmp] = useState(false);
   const [addEmpType, setAddEmpType] = useState('');
   const [addEmpId, setAddEmpId] = useState('');
+  const [editingTypeFor, setEditingTypeFor] = useState(null);
+  const [editTypeValue, setEditTypeValue] = useState('');
 
   useEffect(() => { load(); }, [id]);
 
@@ -36,13 +38,9 @@ export default function ShiftDetail({ user }) {
   };
 
   const handleAddEmployeeWithType = async () => {
-    if (!shift.shiftTypeId && !addEmpType) return alert('Выберите тип смены');
+    if (!addEmpType) return alert('Выберите тип смены');
     if (!addEmpId) return alert('Выберите сотрудника');
-    // Устанавливаем тип смены только если ещё не выбран
-    if (!shift.shiftTypeId && addEmpType) {
-      await store.updateShiftType(id, addEmpType);
-    }
-    await store.addEmployeeToShift(id, addEmpId);
+    await store.addEmployeeToShift(id, addEmpId, addEmpType);
     setShowAddEmp(false);
     setAddEmpType('');
     setAddEmpId('');
@@ -55,7 +53,31 @@ export default function ShiftDetail({ user }) {
     load();
   };
 
+  const startEditType = (empId) => {
+    setEditingTypeFor(empId);
+    setEditTypeValue(getEmpType(empId) || '');
+  };
+
+  const saveEditType = async (empId) => {
+    if (!editTypeValue) return alert('Выберите тип смены');
+    await store.updateEmployeeShiftType(id, empId, editTypeValue);
+    setEditingTypeFor(null);
+    setEditTypeValue('');
+    load();
+  };
+
+  const cancelEditType = () => {
+    setEditingTypeFor(null);
+    setEditTypeValue('');
+  };
+
   if (!shift) return <div className="empty-state">Загрузка...</div>;
+
+  const getEmpType = (empId) => shift.employeeShiftTypes?.[empId] ?? shift.shiftTypeId ?? null;
+  const getEmpTypeName = (empId) => {
+    const tid = getEmpType(empId);
+    return tid ? refs.shiftTypes?.find(t => t.id === tid)?.name : null;
+  };
 
   const totalIncome = ops.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
   const totalExpense = ops.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
@@ -64,8 +86,6 @@ export default function ShiftDetail({ user }) {
   const isOwner = user.role === 'owner';
 
   const getUserName = (eid) => refs.employees?.find(e => e.id === eid)?.name || '—';
-
-  const shiftType = refs.shiftTypes?.find(t => t.id === shift.shiftTypeId);
 
   return (
     <div>
@@ -99,25 +119,40 @@ export default function ShiftDetail({ user }) {
           <span>Открыта: {new Date(shift.openDate).toLocaleString('ru-RU')}</span>
           {shift.closeDate && <span>Закрыта: {new Date(shift.closeDate).toLocaleString('ru-RU')}</span>}
         </div>
-        {shift.shiftTypeId && (
-          <div style={{ marginTop: 8, fontSize: 13 }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Тип: </span>
-            <span style={{ fontWeight: 600 }}>{refs.shiftTypes?.find(t => t.id === shift.shiftTypeId)?.name || '—'}</span>
-          </div>
-        )}
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-title">Сотрудники смены</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
           {shift.employeeIds?.map(eid => (
-            <div key={eid} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, background: 'var(--surface-light)', padding: '6px 12px', borderRadius: 20, fontSize: 13 }}>
+            <div key={eid} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, background: 'var(--surface-light)', padding: '6px 12px', borderRadius: 20, fontSize: 13, minWidth: 90 }}>
               <span>{getUserName(eid)}</span>
-              {shift.shiftTypeId && (
-                <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{refs.shiftTypes?.find(t => t.id === shift.shiftTypeId)?.name}</span>
+              {editingTypeFor === eid ? (
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 4 }}>
+                  <select
+                    className="form-select"
+                    value={editTypeValue}
+                    onChange={e => setEditTypeValue(e.target.value)}
+                    style={{ padding: '4px 6px', fontSize: 11, borderRadius: 6 }}
+                  >
+                    <option value="">Тип...</option>
+                    {refs.shiftTypes?.filter(t => t.active).map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <button onClick={() => saveEditType(eid)} style={{ background: 'var(--success)', border: 'none', borderRadius: 6, padding: 4, color: '#fff' }}><Check size={12} /></button>
+                  <button onClick={cancelEditType} style={{ background: 'var(--danger)', border: 'none', borderRadius: 6, padding: 4, color: '#fff' }}><X size={12} /></button>
+                </div>
+              ) : (
+                <span
+                  onClick={() => (shift.status === 'Открыта' && canEdit) && startEditType(eid)}
+                  style={{ color: 'var(--text-secondary)', fontSize: 11, cursor: (shift.status === 'Открыта' && canEdit) ? 'pointer' : 'default', textDecoration: (shift.status === 'Открыта' && canEdit) ? 'underline dotted' : 'none' }}
+                >
+                  {getEmpTypeName(eid) || '—'}
+                </span>
               )}
-              {shift.status === 'Открыта' && canEdit && shift.employeeIds.length > 1 && (
-                <button onClick={() => handleRemoveEmployee(eid)} style={{ background: 'none', border: 'none', color: 'var(--danger)', padding: 0, marginLeft: 4 }}><X size={14} /></button>
+              {shift.status === 'Открыта' && canEdit && shift.employeeIds.length > 1 && editingTypeFor !== eid && (
+                <button onClick={() => handleRemoveEmployee(eid)} style={{ background: 'none', border: 'none', color: 'var(--danger)', padding: 0, marginTop: 2 }}><X size={14} /></button>
               )}
             </div>
           ))}
@@ -130,26 +165,23 @@ export default function ShiftDetail({ user }) {
             {showAddEmp && (
               <div className="card" style={{ marginTop: 8, background: 'var(--surface-light)' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {!shift.shiftTypeId && (
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Тип смены</label>
-                      <select className="form-select" value={addEmpType} onChange={e => { setAddEmpType(e.target.value); setAddEmpId(''); }}>
-                        <option value="">Выберите тип...</option>
-                        {refs.shiftTypes?.filter(t => t.active).map(t => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Тип смены</label>
+                    <select className="form-select" value={addEmpType} onChange={e => { setAddEmpType(e.target.value); setAddEmpId(''); }}>
+                      <option value="">Выберите тип...</option>
+                      {refs.shiftTypes?.filter(t => t.active).map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Сотрудник</label>
                     <select className="form-select" value={addEmpId} onChange={e => setAddEmpId(e.target.value)}>
                       <option value="">Выберите сотрудника...</option>
-                      {(shift.shiftTypeId || addEmpType) && refs.employees?.filter(e => {
+                      {addEmpType && refs.employees?.filter(e => {
                         if (!e.active) return false;
                         if (shift.employeeIds?.includes(e.id)) return false;
-                        const typeId = shift.shiftTypeId || addEmpType;
-                        if (e.shiftTypes && e.shiftTypes.length > 0) return e.shiftTypes.includes(typeId);
+                        if (e.shiftTypes && e.shiftTypes.length > 0) return e.shiftTypes.includes(addEmpType);
                         return true;
                       }).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                     </select>

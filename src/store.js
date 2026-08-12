@@ -124,14 +124,12 @@ async function initDefaults() {
   if (!refs) {
     await dbPut('references', { key: 'main', data: DEFAULT_REFS });
   } else {
-    // Миграция: добавить shiftTypes если отсутствуют
     const data = refs.data;
     let changed = false;
     if (!data.shiftTypes || data.shiftTypes.length === 0) {
       data.shiftTypes = DEFAULT_REFS.shiftTypes;
       changed = true;
     }
-    // Миграция: проставить linkedRef для статей расходов по названию
     const linkMap = {
       'Контрагент': 'counterparties',
       'Заработная плата': 'employees',
@@ -149,7 +147,6 @@ async function initDefaults() {
         return et;
       });
     }
-    // Миграция: проставить shiftTypes для сотрудников по роли
     let empChanged = false;
     if (data.employees) {
       const stAll = (data.shiftTypes || []).filter(t => t.active).map(t => t.id);
@@ -171,7 +168,6 @@ async function initDefaults() {
   }
 }
 
-// Audit log
 async function logAudit(userId, action, entityType, entityId, details = {}) {
   const entry = {
     id: generateId(),
@@ -197,7 +193,6 @@ export const store = {
     await initDefaults();
   },
 
-  // Auth
   async loginByPin(pin) {
     const users = await dbGetAll('users');
     const user = users.find((u) => u.pin === pin && u.active);
@@ -236,19 +231,13 @@ export const store = {
   async getCurrentUser() {
     const s = this.getSession();
     if (!s) return null;
-    const user = await dbGet('users', s.userId);
-    if (!user || !user.active) {
-      localStorage.removeItem('bistro24_session');
-      return null;
-    }
-    return user;
+    return dbGet('users', s.userId);
   },
 
   logout() {
     localStorage.removeItem('bistro24_session');
   },
 
-  // Users
   async getUsers() {
     return dbGetAll('users');
   },
@@ -265,7 +254,6 @@ export const store = {
     return user;
   },
 
-  // References
   async getReferences() {
     const refs = await dbGet('references', 'main');
     return refs ? refs.data : DEFAULT_REFS;
@@ -305,7 +293,6 @@ export const store = {
     await dbPut('references', { key: 'main', data });
   },
 
-  // Shifts
   async getShifts() {
     return dbGetAll('shifts');
   },
@@ -341,7 +328,6 @@ export const store = {
       }
       await dbPut('shifts', shift);
 
-      // Передать остаток следующей смене
       if (i + 1 < sorted.length) {
         sorted[i + 1].startBalance = shift.endBalance;
       }
@@ -378,6 +364,7 @@ export const store = {
       shiftNumber,
       openDate: nowISO(),
       employeeIds: [employeeId],
+      employeeShiftTypes: { [employeeId]: shiftTypeId || null },
       startBalance,
       revenue: 0,
       cash: 0,
@@ -405,13 +392,24 @@ export const store = {
     return shift;
   },
 
-  async addEmployeeToShift(shiftId, employeeId) {
+  async updateEmployeeShiftType(shiftId, employeeId, shiftTypeId) {
     const shift = await dbGet('shifts', shiftId);
     if (!shift || shift.status !== 'Открыта') return null;
+    if (!shift.employeeShiftTypes) shift.employeeShiftTypes = {};
+    shift.employeeShiftTypes[employeeId] = shiftTypeId || null;
+    await dbPut('shifts', shift);
+    return shift;
+  },
+
+  async addEmployeeToShift(shiftId, employeeId, shiftTypeId) {
+    const shift = await dbGet('shifts', shiftId);
+    if (!shift || shift.status !== 'Открыта') return null;
+    if (!shift.employeeShiftTypes) shift.employeeShiftTypes = {};
     if (!shift.employeeIds.includes(employeeId)) {
       shift.employeeIds.push(employeeId);
-      await dbPut('shifts', shift);
     }
+    shift.employeeShiftTypes[employeeId] = shiftTypeId || null;
+    await dbPut('shifts', shift);
     return shift;
   },
 
@@ -419,6 +417,7 @@ export const store = {
     const shift = await dbGet('shifts', shiftId);
     if (!shift || shift.status !== 'Открыта') return null;
     shift.employeeIds = shift.employeeIds.filter(id => id !== employeeId);
+    if (shift.employeeShiftTypes) delete shift.employeeShiftTypes[employeeId];
     await dbPut('shifts', shift);
     return shift;
   },
@@ -473,7 +472,6 @@ export const store = {
 
   canEditShift(shift, user) {
     if (!shift || shift.status !== 'Закрыта') return false;
-    // Fallback для старых смен без editDeadline
     if (!shift.editDeadline) {
       if (user.role === 'owner') return true;
       if (user.role === 'manager') return true;
@@ -489,11 +487,9 @@ export const store = {
   async deleteShift(id, userId) {
     const shift = await dbGet('shifts', id);
     if (!shift) return false;
-    // Открытую смену можно удалить (свою или если manager/owner)
     if (shift.status === 'Открыта') {
       const user = await dbGet('users', userId);
       if (user.role === 'owner' || user.role === 'manager') {
-        // owner/manager может удалить любую открытую
       } else if (!shift.employeeIds?.includes(userId)) {
         return false;
       }
@@ -506,7 +502,6 @@ export const store = {
       await logAudit(userId, 'DELETE', 'shift', id, { status: 'Открыта' });
       return true;
     }
-    // Закрытую — только в срок
     if (shift.status === 'Закрыта') {
       const user = await dbGet('users', userId);
       if (!this.canEditShift(shift, user)) return false;
@@ -522,7 +517,6 @@ export const store = {
     return false;
   },
 
-  // Operations
   async getOperation(id) {
     return dbGet('operations', id);
   },
@@ -542,7 +536,6 @@ export const store = {
     await dbPut('operations', op);
     await logAudit(userId, 'UPDATE', 'operation', opId, { old: oldData, new: values });
 
-    // Пересчитать цепочку смен
     await this.recalcChain(op.shiftId);
 
     return op;
@@ -556,7 +549,6 @@ export const store = {
     await dbDelete('operations', id);
     await logAudit(userId, 'DELETE', 'operation', id, { amount: op.amount, type: op.type });
 
-    // Пересчитать цепочку смен
     await this.recalcChain(shiftId);
 
     return true;
@@ -604,7 +596,6 @@ export const store = {
     return operation;
   },
 
-  // Photos
   async addPhoto(dataUrl) {
     const photo = { id: generateId(), dataUrl, createdAt: nowISO() };
     await dbPut('photos', photo);
@@ -619,12 +610,10 @@ export const store = {
     return dbDelete('photos', id);
   },
 
-  // Audit
   async getAuditLog(entityType, entityId) {
     return getAudit(entityType, entityId);
   },
 
-  // Export
   async getAllData() {
     const [shifts, operations, users, audit] = await Promise.all([
       dbGetAll('shifts'),
