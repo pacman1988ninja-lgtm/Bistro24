@@ -383,7 +383,7 @@ export const store = {
     shift.goodsIncome = goodsOps.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
     shift.goodsExpense = goodsOps.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
     if (shift.status === 'Закрыта') {
-      shift.endBalance = shift.startBalance + shift.deposit - shift.expense;
+      shift.endBalance = shift.startBalance + shift.cash + shift.deposit - shift.expense;
     }
     await dbPut('shifts', shift);
     return shift;
@@ -406,7 +406,7 @@ export const store = {
       shift.goodsIncome = goodsOps.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
       shift.goodsExpense = goodsOps.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
       if (shift.status === 'Закрыта') {
-        shift.endBalance = shift.startBalance + shift.deposit - shift.expense;
+        shift.endBalance = shift.startBalance + shift.cash + shift.deposit - shift.expense;
       }
       await dbPut('shifts', shift);
 
@@ -518,7 +518,7 @@ export const store = {
     shift.cashless = toNum(values.cashless);
     shift.deposit = toNum(values.deposit);
     shift.expense = toNum(values.expense);
-    shift.endBalance = shift.startBalance + shift.deposit - shift.expense;
+    shift.endBalance = shift.startBalance + shift.cash + shift.deposit - shift.expense;
     shift.status = 'Закрыта';
     shift.closeDate = nowISO();
     shift.comment = values.comment || '';
@@ -548,7 +548,7 @@ export const store = {
     shift.cashless = toNum(values.cashless, shift.cashless);
     shift.deposit = toNum(values.deposit, shift.deposit);
     shift.expense = toNum(values.expense, shift.expense);
-    shift.endBalance = shift.startBalance + shift.deposit - shift.expense;
+    shift.endBalance = shift.startBalance + shift.cash + shift.deposit - shift.expense;
     shift.comment = values.comment ?? shift.comment;
     shift.version = (shift.version || 1) + 1;
     await dbPut('shifts', shift);
