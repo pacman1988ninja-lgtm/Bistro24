@@ -406,7 +406,7 @@ export const store = {
       shift.goodsIncome = goodsOps.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
       shift.goodsExpense = goodsOps.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
       if (shift.status === 'Закрыта') {
-        shift.endBalance = shift.startBalance + shift.deposit - shift.expense;
+        shift.endBalance = Math.max(0, shift.startBalance + shift.deposit - shift.expense);
       }
       await dbPut('shifts', shift);
 
@@ -441,7 +441,7 @@ export const store = {
       .filter((s) => s.status === 'Закрыта')
       .sort((a, b) => new Date(b.closeDate || b.openDate) - new Date(a.closeDate || a.openDate));
 
-    const startBalance = closed.length > 0 ? closed[0].endBalance : 0;
+    const startBalance = closed.length > 0 ? Math.max(0, closed[0].endBalance) : 0;
 
     const shift = {
       id: generateId(),
@@ -817,7 +817,7 @@ export const store = {
         total,
         paid,
       };
-    }).filter(e => e.total > 0 || e.lines.length > 0);
+    }).filter(e => e.lines.length > 0 || e.paid > 0);
   },
 
   async addOperation(op, userId) {
