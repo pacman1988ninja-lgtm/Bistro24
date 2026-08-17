@@ -189,7 +189,7 @@ export default function Settings({ user }) {
       </div>
 
       <div style={{ marginTop: 24, padding: 12, background: 'var(--surface)', borderRadius: 12, textAlign: 'center' }}>
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Бистро24 v2.1</div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Бистро24 v2.29</div>
         <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
           {syncCfg ? 'Данные: локально + GitHub' : 'Данные хранятся локально'}
         </div>
