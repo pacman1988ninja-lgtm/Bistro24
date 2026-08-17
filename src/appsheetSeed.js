@@ -1,0 +1,33 @@
+export const APPSHEET_SEED = {
+  employees: [
+    { name: "Евдокимова Екатерина", role: "manager", email: "katena.evdokimova.2019@inbox.ru" },
+    { name: "Алина", role: "seller", email: "alinavarankina2005@gmail.com" },
+    { name: "Инна", role: "seller", email: "" },
+    { name: "Гук Галина Игнатьевна", role: "seller", email: "" },
+    { name: "Наталья Паршутина", role: "seller", email: "n55995943@gmail.com" },
+    { name: "Надежда Сергеевна", role: "seller", email: "" },
+    { name: "Олеся Мельник", role: "seller", email: "melnik0lesya@yandex.ru" },
+  ],
+  contractors: ["Уборщица", "Пряник Гена", "Рябых Сергей"],
+  counterparties: [
+    "ИП Кузина К.А. Деньги",
+    "ИП Кузина К.А. Товар",
+    "Метро",
+    "Сладкая Жизнь /Карпин",
+    "ООО \"ПАРТНЕР\"",
+    "ООО \"ПИВСТАР\"",
+    "ООО \"Версаль\" (Арт - Логистик)",
+    "Коробов",
+    "Лобунов",
+    "АО \"Брянскпиво\"",
+    "Посуда",
+    "Система кпд",
+  ],
+  expenseTypes: [
+    { name: "Заработная плата", linkedRef: "employees" },
+    { name: "Подрядчик", linkedRef: "contractors" },
+    { name: "Контрагент", linkedRef: "counterparties" },
+    { name: "Хоз.нужды", linkedRef: "" },
+    { name: "Прочие выплаты", linkedRef: "" },
+  ],
+};
