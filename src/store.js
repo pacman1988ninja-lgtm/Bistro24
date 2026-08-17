@@ -404,8 +404,12 @@ export const store = {
       const shiftOps = ops.filter(o => o.shiftId === shift.id);
       const cashOps = shiftOps.filter(o => !o.category || o.category === 'cash');
       const goodsOps = shiftOps.filter(o => o.category === 'goods');
-      shift.deposit = cashOps.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
-      shift.expense = cashOps.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
+      // Для открытой смены пересчитываем deposit/expense из операций
+      // Для закрытой смены оставляем вручную введённые значения
+      if (shift.status !== 'Закрыта') {
+        shift.deposit = cashOps.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
+        shift.expense = cashOps.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
+      }
       shift.goodsIncome = goodsOps.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
       shift.goodsExpense = goodsOps.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
       if (shift.status === 'Закрыта') {

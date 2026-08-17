@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { store } from '../store';
 import { ArrowLeft, Plus, Trash2, Edit3 } from 'lucide-react';
@@ -6,12 +6,13 @@ import { ArrowLeft, Plus, Trash2, Edit3 } from 'lucide-react';
 export default function Operations({ user }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [ops, setOps] = useState([]);
   const [refs, setRefs] = useState({});
   const [photos, setPhotos] = useState({});
   const [shift, setShift] = useState(null);
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); }, [id, location.key]);
 
   const load = async () => {
     const s = await store.getShift(id);

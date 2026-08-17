@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { store } from '../store';
 import { ArrowLeft, Receipt, Lock, List, AlertCircle, Edit3, History, Trash2, ChevronDown, ChevronUp, UserPlus, X, Check, Camera, ImagePlus, Package } from 'lucide-react';
@@ -14,6 +14,7 @@ function PhotoThumb({ photoId }) {
 export default function ShiftDetail({ user }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [shift, setShift] = useState(null);
   const [ops, setOps] = useState([]);
   const [audit, setAudit] = useState([]);
@@ -26,7 +27,7 @@ export default function ShiftDetail({ user }) {
   const [editTypeValue, setEditTypeValue] = useState('');
   const [photoBusy, setPhotoBusy] = useState(false);
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); }, [id, location.key]);
 
   const load = async () => {
     const s = await store.getShift(id);
