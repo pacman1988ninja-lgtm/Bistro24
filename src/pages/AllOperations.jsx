@@ -59,6 +59,13 @@ export default function AllOperations({ user }) {
     if (op.sourceId) return getName('incomeSources', op.sourceId);
     if (op.contractorId) return getName('contractors', op.contractorId);
     if (op.counterpartyId) return getName('counterparties', op.counterpartyId);
+    // Для расходов на зарплату employeeId содержит получателя, а не создателя
+    if (op.type === 'expense' && op.employeeId) {
+      const expenseType = refs.expenseTypes?.find(t => t.id === op.expenseTypeId);
+      if (expenseType?.linkedRef === 'employees') {
+        return getName('employees', op.employeeId);
+      }
+    }
     return null;
   };
   const canEditOp = (shiftId) => {
