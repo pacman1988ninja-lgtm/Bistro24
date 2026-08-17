@@ -397,6 +397,9 @@ export const store = {
 
     for (let i = fromIndex; i < sorted.length; i++) {
       const shift = sorted[i];
+      if (i > 0) {
+        shift.startBalance = sorted[i - 1].endBalance;
+      }
       const ops = await dbGetAll('operations');
       const shiftOps = ops.filter(o => o.shiftId === shift.id);
       const cashOps = shiftOps.filter(o => !o.category || o.category === 'cash');
@@ -407,6 +410,8 @@ export const store = {
       shift.goodsExpense = goodsOps.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
       if (shift.status === 'Закрыта') {
         shift.endBalance = shift.startBalance + shift.cash + shift.deposit - shift.expense;
+      } else {
+        shift.endBalance = shift.startBalance + shift.deposit - shift.expense;
       }
       await dbPut('shifts', shift);
 
@@ -534,6 +539,7 @@ export const store = {
     }
     await dbPut('shifts', shift);
     await logAudit(userId, 'CLOSE', 'shift', shiftId, { old: oldData, new: { revenue: shift.revenue, cash: shift.cash, cashless: shift.cashless, expense: shift.expense, endBalance: shift.endBalance } });
+    await this.recalcChain(shiftId);
     return shift;
   },
 
@@ -553,6 +559,7 @@ export const store = {
     shift.version = (shift.version || 1) + 1;
     await dbPut('shifts', shift);
     await logAudit(userId, 'UPDATE', 'shift', shiftId, { old: oldData, new: values });
+    await this.recalcChain(shiftId);
     return shift;
   },
 
@@ -840,6 +847,7 @@ export const store = {
     };
     await dbPut('operations', operation);
     await logAudit(userId || op.employeeId, 'CREATE', 'operation', operation.id, { amount: operation.amount, type: operation.type, category: operation.category });
+    if (operation.shiftId) await this.recalcChain(operation.shiftId);
     return operation;
   },
 

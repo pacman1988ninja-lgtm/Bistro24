@@ -136,8 +136,12 @@ export default function ShiftDetail({ user }) {
     );
   };
 
-  const totalIncome = ops.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
-  const totalExpense = ops.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
+  const cashOps = ops.filter(o => !o.category || o.category === 'cash');
+  const goodsOps = ops.filter(o => o.category === 'goods');
+  const totalIncome = cashOps.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
+  const totalExpense = cashOps.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
+  const goodsIncome = goodsOps.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
+  const goodsExpense = goodsOps.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
   const canEdit = shift.status === 'Открыта' && (shift.employeeIds?.includes(user.id) || user.role !== 'seller');
   const canModifyClosed = store.canEditShift(shift, user);
   const canEditPhotos = shift.status === 'Открыта' ? canEdit : canModifyClosed;
@@ -279,8 +283,8 @@ export default function ShiftDetail({ user }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, color: 'var(--success)', fontWeight: 700 }}>+{totalIncome.toLocaleString('ru-RU')}</div><div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Внесение</div></div>
           <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, color: 'var(--danger)', fontWeight: 700 }}>-{totalExpense.toLocaleString('ru-RU')}</div><div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Расход</div></div>
-          <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, color: 'var(--success)', fontWeight: 700 }}>+{(shift.goodsIncome || 0).toLocaleString('ru-RU')}</div><div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Товар Приход</div></div>
-          <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, color: 'var(--danger)', fontWeight: 700 }}>-{(shift.goodsExpense || 0).toLocaleString('ru-RU')}</div><div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Товар Списание</div></div>
+          <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, color: 'var(--success)', fontWeight: 700 }}>+{goodsIncome.toLocaleString('ru-RU')}</div><div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Товар Приход</div></div>
+          <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, color: 'var(--danger)', fontWeight: 700 }}>-{goodsExpense.toLocaleString('ru-RU')}</div><div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Товар Списание</div></div>
         </div>
         {canEdit && (
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
