@@ -459,7 +459,7 @@ export const store = {
 
     const closed = shifts
       .filter((s) => s.status === 'Закрыта')
-      .sort((a, b) => new Date(b.closeDate || b.openDate) - new Date(a.closeDate || b.openDate));
+      .sort((a, b) => new Date(b.closeDate || b.openDate) - new Date(a.closeDate || a.openDate));
 
     const startBalance = closed.length > 0 ? closed[0].endBalance : 0;
 
