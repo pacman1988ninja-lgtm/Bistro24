@@ -31,13 +31,17 @@ export default function PhotoCapture({ photoIds, onChange }) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setLoading(true);
+    const newIds = [];
     for (const file of files) {
       const dataUrl = await compressImage(file);
       const photo = await store.addPhoto(dataUrl);
-      const newIds = [...photos, photo.id];
-      setPhotos(newIds);
-      onChange(newIds);
+      newIds.push(photo.id);
     }
+    setPhotos(prev => {
+      const combined = [...prev, ...newIds];
+      onChange(combined);
+      return combined;
+    });
     setLoading(false);
     e.target.value = '';
   };

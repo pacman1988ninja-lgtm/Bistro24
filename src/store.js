@@ -1,7 +1,7 @@
 const DB_NAME = 'Bistro24DB';
 const DB_VERSION = 8;
 
-const SYNCED_STORES = ['shifts', 'operations', 'users', 'references'];
+const SYNCED_STORES = ['shifts', 'operations', 'users', 'references', 'payrollPayments'];
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -135,6 +135,19 @@ function toNum(value, fallback = 0) {
 
 function nowISO() {
   return new Date().toISOString();
+}
+
+/**
+ * Возвращает дату в формате YYYY-MM-DD по локальному часовому поясу.
+ * Используется для сравнения дат без сдвига UTC.
+ */
+function localDateStr(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 const DEFAULT_USERS = [
@@ -404,8 +417,6 @@ export const store = {
       const shiftOps = ops.filter(o => o.shiftId === shift.id);
       const cashOps = shiftOps.filter(o => !o.category || o.category === 'cash');
       const goodsOps = shiftOps.filter(o => o.category === 'goods');
-      // Для открытой смены пересчитываем deposit/expense из операций
-      // Для закрытой смены оставляем вручную введённые значения
       if (shift.status !== 'Закрыта') {
         shift.deposit = cashOps.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
         shift.expense = cashOps.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
@@ -448,7 +459,7 @@ export const store = {
 
     const closed = shifts
       .filter((s) => s.status === 'Закрыта')
-      .sort((a, b) => new Date(b.closeDate || b.openDate) - new Date(a.closeDate || a.openDate));
+      .sort((a, b) => new Date(b.closeDate || b.openDate) - new Date(a.closeDate || b.openDate));
 
     const startBalance = closed.length > 0 ? closed[0].endBalance : 0;
 
@@ -631,16 +642,17 @@ export const store = {
     if (!op) return null;
     const oldData = { ...op };
     op.amount = toNum(values.amount, op.amount);
-    op.type = values.type ?? op.type;
-    op.category = values.category ?? op.category ?? 'cash';
-    op.expenseTypeId = values.expenseTypeId ?? op.expenseTypeId;
-    op.writeOffTypeId = values.writeOffTypeId ?? op.writeOffTypeId ?? null;
-    op.contractorId = values.contractorId ?? op.contractorId;
-    op.counterpartyId = values.counterpartyId ?? op.counterpartyId;
-    op.sourceId = values.sourceId ?? op.sourceId ?? null;
-    op.paymentFormId = values.paymentFormId ?? op.paymentFormId;
-    op.comment = values.comment ?? op.comment;
-    op.photoIds = values.photoIds ?? op.photoIds;
+    op.type = 'type' in values ? values.type : op.type;
+    op.category = 'category' in values ? values.category : op.category;
+    op.expenseTypeId = 'expenseTypeId' in values ? values.expenseTypeId : op.expenseTypeId;
+    op.writeOffTypeId = 'writeOffTypeId' in values ? values.writeOffTypeId : op.writeOffTypeId;
+    op.contractorId = 'contractorId' in values ? values.contractorId : op.contractorId;
+    op.counterpartyId = 'counterpartyId' in values ? values.counterpartyId : op.counterpartyId;
+    op.sourceId = 'sourceId' in values ? values.sourceId : op.sourceId;
+    op.paymentFormId = 'paymentFormId' in values ? values.paymentFormId : op.paymentFormId;
+    op.employeeId = 'employeeId' in values ? values.employeeId : op.employeeId;
+    op.comment = 'comment' in values ? values.comment : op.comment;
+    op.photoIds = 'photoIds' in values ? values.photoIds : op.photoIds;
     if (values.date) op.date = values.date;
     await dbPut('operations', op);
     await logAudit(userId, 'UPDATE', 'operation', opId, { old: oldData, new: values });
@@ -694,12 +706,12 @@ export const store = {
       expenseTypes.filter(et => et.linkedRef === 'employees').map(et => et.id)
     );
 
-    const start = new Date(year, month - 1, 1).toISOString();
-    const end = new Date(year, month, 1).toISOString();
+    const startStr = localDateStr(new Date(year, month - 1, 1));
+    const endStr = localDateStr(new Date(year, month, 1));
 
     const shifts = allShifts
       .filter(s => s.status === 'Закрыта')
-      .filter(s => s.closeDate >= start && s.closeDate < end)
+      .filter(s => localDateStr(s.closeDate) >= startStr && localDateStr(s.closeDate) < endStr)
       .filter(s => s.employeeIds?.includes(employeeId))
       .sort((a, b) => new Date(b.closeDate) - new Date(a.closeDate));
 
@@ -722,17 +734,15 @@ export const store = {
       };
     });
 
-    // Выплаты из операций расхода (зарплатные статьи)
     const allOps = await dbGetAll('operations');
     const paidFromOps = allOps
       .filter(o => o.type === 'expense')
       .filter(o => !o.category || o.category === 'cash')
       .filter(o => o.employeeId === employeeId)
-      .filter(o => o.date >= start && o.date < end)
+      .filter(o => localDateStr(o.date) >= startStr && localDateStr(o.date) < endStr)
       .filter(o => salaryExpenseTypeIds.has(o.expenseTypeId))
       .reduce((sum, o) => sum + o.amount, 0);
 
-    // Выплаты из payrollPayments
     const allPayments = await dbGetAll('payrollPayments');
     const paidFromPayments = allPayments
       .filter(p => p.employeeId === employeeId && p.year === year && p.month === month)
@@ -777,12 +787,12 @@ export const store = {
     const users = await this.getUsers();
     const sellers = users.filter(u => u.role === 'seller');
 
-    const start = new Date(year, month - 1, 1).toISOString();
-    const end = new Date(year, month, 1).toISOString();
+    const startStr = localDateStr(new Date(year, month - 1, 1));
+    const endStr = localDateStr(new Date(year, month, 1));
 
     const closedShifts = allShifts
       .filter(s => s.status === 'Закрыта')
-      .filter(s => s.closeDate >= start && s.closeDate < end);
+      .filter(s => localDateStr(s.closeDate) >= startStr && localDateStr(s.closeDate) < endStr);
 
     const allOps = await dbGetAll('operations');
     const allPayments = await dbGetAll('payrollPayments');
@@ -810,7 +820,7 @@ export const store = {
       const paidFromOps = allOps
         .filter(o => o.type === 'expense' && (!o.category || o.category === 'cash'))
         .filter(o => o.employeeId === emp.id)
-        .filter(o => o.date >= start && o.date < end)
+        .filter(o => localDateStr(o.date) >= startStr && localDateStr(o.date) < endStr)
         .filter(o => salaryExpenseTypeIds.has(o.expenseTypeId))
         .reduce((sum, o) => sum + o.amount, 0);
 

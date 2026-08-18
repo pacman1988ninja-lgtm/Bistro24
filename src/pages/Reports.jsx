@@ -4,6 +4,15 @@ import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ExportExcel from '../components/ExportExcel';
 
+function localDateStr(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export default function Reports({ user }) {
   const navigate = useNavigate();
   const [shifts, setShifts] = useState([]);
@@ -14,13 +23,17 @@ export default function Reports({ user }) {
   }, []);
 
   const now = new Date();
+  const todayStr = localDateStr(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+  const weekStr = localDateStr(new Date(now.getTime() - 7 * 86400000));
+  const monthStr = localDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+
   const filters = {
-    today: new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString(),
-    week: new Date(now.getTime() - 7 * 86400000).toISOString(),
-    month: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
+    today: todayStr,
+    week: weekStr,
+    month: monthStr,
   };
 
-  const filtered = shifts.filter(s => s.closeDate >= filters[period]);
+  const filtered = shifts.filter(s => localDateStr(s.closeDate) >= filters[period]);
   const totalRevenue = filtered.reduce((sum, s) => sum + s.revenue, 0);
   const totalCash = filtered.reduce((sum, s) => sum + s.cash, 0);
   const totalCashless = filtered.reduce((sum, s) => sum + s.cashless, 0);

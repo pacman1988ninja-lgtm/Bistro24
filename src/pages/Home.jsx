@@ -3,6 +3,15 @@ import { useEffect, useState } from 'react';
 import { store } from '../store';
 import { Plus, ArrowRight } from 'lucide-react';
 
+function localDateStr(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export default function Home({ user }) {
   const navigate = useNavigate();
   const [shifts, setShifts] = useState([]);
@@ -32,12 +41,12 @@ export default function Home({ user }) {
 
     if (user.role !== 'seller') {
       const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      const weekStart = new Date(now.getTime() - 7 * 86400000).toISOString();
+      const todayStr = localDateStr(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+      const weekStr = localDateStr(new Date(now.getTime() - 7 * 86400000));
       const closed = all.filter(s => s.status === 'Закрыта');
       setStats({
-        today: closed.filter(s => s.closeDate >= todayStart).reduce((sum, s) => sum + s.revenue, 0),
-        week: closed.filter(s => s.closeDate >= weekStart).reduce((sum, s) => sum + s.revenue, 0),
+        today: closed.filter(s => localDateStr(s.closeDate) >= todayStr).reduce((sum, s) => sum + s.revenue, 0),
+        week: closed.filter(s => localDateStr(s.closeDate) >= weekStr).reduce((sum, s) => sum + s.revenue, 0),
       });
     }
   };

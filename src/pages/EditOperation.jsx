@@ -32,7 +32,7 @@ export default function EditOperation({ user }) {
       setCounterpartyId(o.counterpartyId || '');
       setPaymentFormId(o.paymentFormId || '');
       setRelatedId(o.contractorId || o.counterpartyId || o.employeeId || '');
-      setSourceId(o.sourceId || o.counterpartyId || o.contractorId || '');
+      setSourceId(o.sourceId || '');
       setComment(o.comment || '');
       setPhotoIds(o.photoIds || []);
       setDate(o.date ? o.date.slice(0, 16) : '');
@@ -73,18 +73,20 @@ export default function EditOperation({ user }) {
 
     const payload = {
       amount: Number(amount),
-      expenseTypeId,
+      expenseTypeId: op.type === 'expense' ? expenseTypeId : null,
       paymentFormId,
       comment,
       photoIds,
     };
     if (op.type === 'expense') {
+      payload.sourceId = null;
       if (linkedRef === 'employees') payload.employeeId = relatedId;
       if (linkedRef === 'contractors') payload.contractorId = relatedId;
       if (linkedRef === 'counterparties') payload.counterpartyId = relatedId;
     }
     if (op.type === 'income') {
       payload.sourceId = sourceId;
+      payload.expenseTypeId = null;
       payload.counterpartyId = null;
       payload.contractorId = null;
       payload.employeeId = null;
