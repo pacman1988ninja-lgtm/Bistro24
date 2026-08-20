@@ -128,34 +128,46 @@ export default function Settlements({ user }) {
   const getName = (list, id) => refs[list]?.find(t => t.id === id)?.name || '';
   const getUserName = (id) => refs.employees?.find(e => e.id === id)?.name || refs.users?.find(u => u.id === id)?.fullName || '—';
 
-  const handleCamera = async (isEdit = false) => {
-    try {
-      const photo = await store.takePhoto();
-      if (photo) {
-        if (isEdit) {
-          setEditPhotoIds(prev => [...prev, photo.id]);
-          setEditPhotos(prev => ({ ...prev, [photo.id]: photo.base64 }));
-        } else {
-          setPhotoIds(prev => [...prev, photo.id]);
-          setPhotos(prev => ({ ...prev, [photo.id]: photo.base64 }));
-        }
-      }
-    } catch (e) { alert('Ошибка камеры: ' + e.message); }
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxWidth = 800;
+          const scale = Math.min(1, maxWidth / img.width);
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
-  const handleGallery = async (isEdit = false) => {
-    try {
-      const photo = await store.pickPhoto();
-      if (photo) {
+  const handleFileSelect = async (e, isEdit = false) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    for (const file of files) {
+      try {
+        const dataUrl = await compressImage(file);
+        const photo = await store.addPhoto(dataUrl);
         if (isEdit) {
           setEditPhotoIds(prev => [...prev, photo.id]);
-          setEditPhotos(prev => ({ ...prev, [photo.id]: photo.base64 }));
+          setEditPhotos(prev => ({ ...prev, [photo.id]: photo.dataUrl }));
         } else {
           setPhotoIds(prev => [...prev, photo.id]);
-          setPhotos(prev => ({ ...prev, [photo.id]: photo.base64 }));
+          setPhotos(prev => ({ ...prev, [photo.id]: photo.dataUrl }));
         }
+      } catch (err) {
+        alert('Ошибка загрузки фото: ' + err.message);
       }
-    } catch (e) { alert('Ошибка галереи: ' + e.message); }
+    }
+    e.target.value = '';
   };
 
   const handleAdjust = async () => {
@@ -383,12 +395,14 @@ export default function Settlements({ user }) {
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label">Фото первички</label>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-secondary" onClick={() => handleCamera()} style={{ flex: 1, fontSize: 13 }}>
+                <label className="btn btn-secondary" style={{ flex: 1, fontSize: 13, textAlign: 'center' }}>
                   <Camera size={16} style={{ marginRight: 6, verticalAlign: 'middle' }} /> Камера
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGallery()} style={{ flex: 1, fontSize: 13 }}>
+                  <input type="file" accept="image/*" capture="environment" onChange={(e) => handleFileSelect(e, false)} style={{ display: 'none' }} />
+                </label>
+                <label className="btn btn-secondary" style={{ flex: 1, fontSize: 13, textAlign: 'center' }}>
                   <ImageIcon size={16} style={{ marginRight: 6, verticalAlign: 'middle' }} /> Галерея
-                </button>
+                  <input type="file" accept="image/*" multiple onChange={(e) => handleFileSelect(e, false)} style={{ display: 'none' }} />
+                </label>
               </div>
               {photoIds.length > 0 && (
                 <div className="photo-grid" style={{ marginTop: 8 }}>
@@ -425,12 +439,14 @@ export default function Settlements({ user }) {
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label">Фото первички</label>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-secondary" onClick={() => handleCamera(true)} style={{ flex: 1, fontSize: 13 }}>
+                <label className="btn btn-secondary" style={{ flex: 1, fontSize: 13, textAlign: 'center' }}>
                   <Camera size={16} style={{ marginRight: 6, verticalAlign: 'middle' }} /> Камера
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGallery(true)} style={{ flex: 1, fontSize: 13 }}>
+                  <input type="file" accept="image/*" capture="environment" onChange={(e) => handleFileSelect(e, true)} style={{ display: 'none' }} />
+                </label>
+                <label className="btn btn-secondary" style={{ flex: 1, fontSize: 13, textAlign: 'center' }}>
                   <ImageIcon size={16} style={{ marginRight: 6, verticalAlign: 'middle' }} /> Галерея
-                </button>
+                  <input type="file" accept="image/*" multiple onChange={(e) => handleFileSelect(e, true)} style={{ display: 'none' }} />
+                </label>
               </div>
               {editPhotoIds.length > 0 && (
                 <div className="photo-grid" style={{ marginTop: 8 }}>
