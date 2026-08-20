@@ -280,13 +280,10 @@ export default function Settlements({ user }) {
         </div>
         {selectedId && (
           <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={() => setSelectedId('')}
-              style={{ flex: 1, background: 'var(--surface-light)', border: 'none', borderRadius: 6, padding: '8px 0', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}
-            >
+            <button className="btn btn-secondary" onClick={() => setSelectedId('')} style={{ flex: 1, fontSize: 13 }}>
               Назад
             </button>
-            <button className="btn btn-secondary" onClick={() => setShowAdjustModal(true)} style={{ flex: 1, fontSize: 13 }}>
+            <button className="btn btn-danger" onClick={() => setShowAdjustModal(true)} style={{ flex: 1, fontSize: 13 }}>
               Корректировка
             </button>
           </div>
@@ -302,7 +299,7 @@ export default function Settlements({ user }) {
           <div className="card" style={{ marginBottom: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ flex: 1 }}>
-                <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>
+                <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 4, color: op.category === 'adjustment' ? 'var(--danger)' : 'inherit' }}>
                   {op.category === 'adjustment'
                     ? 'Корректировка сальдо'
                     : op.category === 'goods'
@@ -339,9 +336,9 @@ export default function Settlements({ user }) {
               </div>
             </div>
             {op.photoIds?.length > 0 && (
-              <div className="photo-grid" style={{ marginTop: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 10 }}>
                 {op.photoIds.map(pid => (
-                  <img key={pid} src={photos[pid] || editPhotos[pid] || ''} alt="" className="photo-thumb" style={{ borderRadius: 8 }} />
+                  <PhotoThumb key={pid} photoId={pid} />
                 ))}
               </div>
             )}
@@ -465,4 +462,12 @@ export default function Settlements({ user }) {
       )}
     </div>
   );
+}
+
+function PhotoThumb({ photoId }) {
+  const [src, setSrc] = useState('');
+  useEffect(() => {
+    store.getPhoto(photoId).then(p => p && setSrc(p.dataUrl));
+  }, [photoId]);
+  return <img src={src || ''} alt="" style={{ width: '100%', aspectRatio: '1', borderRadius: 6, objectFit: 'cover', background: 'var(--surface-light)' }} />;
 }
