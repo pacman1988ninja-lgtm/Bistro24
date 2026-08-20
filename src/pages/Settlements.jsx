@@ -170,7 +170,7 @@ export default function Settlements({ user }) {
       amount: Math.abs(diff),
       date: new Date(adjustDate).toISOString(),
       category: 'adjustment',
-      comment: adjustComment || 'Корректировка сальдо',
+      comment: adjustComment || '',
       shiftId: null,
       employeeId: user.id,
       paymentFormId: '',
@@ -221,7 +221,7 @@ export default function Settlements({ user }) {
       amount: Math.abs(diff),
       date: new Date(editDate).toISOString(),
       category: 'adjustment',
-      comment: editComment || 'Корректировка сальдо',
+      comment: editComment || '',
       shiftId: null,
       employeeId: user.id,
       paymentFormId: '',
@@ -303,7 +303,7 @@ export default function Settlements({ user }) {
                 <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
                   {getUserName(op.employeeId)}
                 </p>
-                {op.comment && <p style={{ fontSize: 12, marginTop: 4, fontStyle: 'italic' }}>{op.comment}</p>}
+                {op.comment && op.comment !== 'Корректировка сальдо' && <p style={{ fontSize: 12, marginTop: 4, fontStyle: 'italic' }}>{op.comment}</p>}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                 {op.category === 'adjustment' && op.targetBalance !== undefined && (
