@@ -26,6 +26,8 @@ export default function Settlements({ user }) {
   const [editComment, setEditComment] = useState('');
   const [editPhotoIds, setEditPhotoIds] = useState([]);
   const [editPhotos, setEditPhotos] = useState({});
+  const [photoModalSrc, setPhotoModalSrc] = useState('');
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
 
   useEffect(() => {
     if (user?.role === 'seller') {
@@ -338,7 +340,7 @@ export default function Settlements({ user }) {
             {op.photoIds?.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 10 }}>
                 {op.photoIds.map(pid => (
-                  <PhotoThumb key={pid} photoId={pid} />
+                  <PhotoThumb key={pid} photoId={pid} onClick={() => { store.getPhoto(pid).then(p => p && setPhotoModalSrc(p.dataUrl)); setShowPhotoModal(true); }} />
                 ))}
               </div>
             )}
@@ -460,14 +462,35 @@ export default function Settlements({ user }) {
           </div>
         </div>
       )}
+
+      {showPhotoModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 16 }} onClick={() => setShowPhotoModal(false)}>
+          <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '90vh' }}>
+            <img src={photoModalSrc} alt="" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 8, objectFit: 'contain' }} />
+            <button
+              onClick={() => setShowPhotoModal(false)}
+              style={{ position: 'absolute', top: -40, right: 0, background: 'none', border: 'none', color: '#fff', fontSize: 24, cursor: 'pointer', padding: 8 }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function PhotoThumb({ photoId }) {
+function PhotoThumb({ photoId, onClick }) {
   const [src, setSrc] = useState('');
   useEffect(() => {
     store.getPhoto(photoId).then(p => p && setSrc(p.dataUrl));
   }, [photoId]);
-  return <img src={src || ''} alt="" style={{ width: '100%', aspectRatio: '1', borderRadius: 6, objectFit: 'cover', background: 'var(--surface-light)' }} />;
+  return (
+    <img
+      src={src || ''}
+      alt=""
+      onClick={onClick}
+      style={{ width: '100%', aspectRatio: '1', borderRadius: 6, objectFit: 'cover', background: 'var(--surface-light)', cursor: onClick ? 'pointer' : 'default' }}
+    />
+  );
 }
