@@ -95,7 +95,7 @@ export default function Settlements({ user }) {
     .sort((a, b) => b.balance - a.balance);
 
   const totalDebt = itemsWithBalance.reduce((sum, item) => sum + item.balance, 0);
-  const selectedItem = selectedId ? itemsWithBalance.find(i => i.id === selectedId) : null;
+  const selectedItem = selectedId ? { ...items.find(i => i.id === selectedId), balance: getBalance(selectedId) } : null;
 
   // Get operations for selected entity, sorted by date ascending for running balance
   const selectedOpsRaw = selectedId
