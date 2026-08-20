@@ -151,10 +151,11 @@ export default function ShiftDetail({ user }) {
     );
   };
 
+  const cashFormId = refs.paymentForms?.find(p => p.name === 'Наличные')?.id;
   const cashOps = ops.filter(o => !o.category || o.category === 'cash');
   const goodsOps = ops.filter(o => o.category === 'goods');
-  const totalIncome = cashOps.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
-  const totalExpense = cashOps.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
+  const totalIncome = cashOps.filter(o => o.type === 'income' && o.paymentFormId === cashFormId).reduce((s, o) => s + o.amount, 0);
+  const totalExpense = cashOps.filter(o => o.type === 'expense' && o.paymentFormId === cashFormId).reduce((s, o) => s + o.amount, 0);
   const goodsIncome = goodsOps.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
   const goodsExpense = goodsOps.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
   const canEdit = shift.status === 'Открыта' && (shift.employeeIds?.includes(user.id) || user.role !== 'seller');
