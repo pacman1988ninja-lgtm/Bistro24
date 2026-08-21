@@ -6,6 +6,10 @@ export default function PhotoCapture({ photoIds, onChange }) {
   const [photos, setPhotos] = useState(photoIds || []);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    setPhotos(photoIds || []);
+  }, [photoIds]);
+
   const compressImage = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
