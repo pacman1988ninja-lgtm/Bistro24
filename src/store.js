@@ -382,7 +382,7 @@ export const store = {
     for (const u of users) {
       if (u.role === 'owner') continue;
       const emp = employees.find(e => e.id === u.id);
-      if (!emp || !emp.active) {
+      if (emp && emp.active === false) {
         u.active = false;
         await dbPut('users', u);
       }
@@ -434,8 +434,8 @@ export const store = {
       const cashOps = shiftOps.filter(o => !o.category || o.category === 'cash');
       const goodsOps = shiftOps.filter(o => o.category === 'goods');
       if (shift.status !== 'Закрыта') {
-        shift.deposit = cashOps.filter(o => o.type === 'income' && (!o.paymentFormId || o.paymentFormId === cashFormId)).reduce((s, o) => s + o.amount, 0);
-        shift.expense = cashOps.filter(o => o.type === 'expense' && (!o.paymentFormId || o.paymentFormId === cashFormId)).reduce((s, o) => s + o.amount, 0);
+        shift.deposit = cashOps.filter(o => o.type === 'income' && o.paymentFormId === cashFormId).reduce((s, o) => s + o.amount, 0);
+        shift.expense = cashOps.filter(o => o.type === 'expense' && o.paymentFormId === cashFormId).reduce((s, o) => s + o.amount, 0);
       }
       shift.goodsIncome = goodsOps.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
       shift.goodsExpense = goodsOps.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
@@ -738,7 +738,7 @@ export const store = {
     const shiftTypes = refs.shiftTypes || [];
     const expenseTypes = refs.expenseTypes || [];
     const salaryExpenseTypeIds = new Set(
-      expenseTypes.filter(et => et.linkedRef === 'employees').map(et => et.id)
+      expenseTypes.filter(et => et.name === 'Заработная плата').map(et => et.id)
     );
 
     const startStr = localDateStr(new Date(year, month - 1, 1));
@@ -818,10 +818,10 @@ export const store = {
     const shiftTypes = refs.shiftTypes || [];
     const expenseTypes = refs.expenseTypes || [];
     const salaryExpenseTypeIds = new Set(
-      expenseTypes.filter(et => et.linkedRef === 'employees').map(et => et.id)
+      expenseTypes.filter(et => et.name === 'Заработная плата').map(et => et.id)
     );
     const users = await this.getUsers();
-    const sellers = users.filter(u => u.role === 'seller');
+    const activeUsers = users.filter(u => u.active);
 
     const startStr = localDateStr(new Date(year, month - 1, 1));
     const endStr = localDateStr(new Date(year, month, 1));
@@ -833,7 +833,7 @@ export const store = {
     const allOps = await dbGetAll('operations');
     const allPayments = await dbGetAll('payrollPayments');
 
-    return sellers.map(emp => {
+    return activeUsers.map(emp => {
       const empShifts = closedShifts.filter(s => s.employeeIds?.includes(emp.id));
       const lines = empShifts.map(s => {
         const typeId = s.employeeShiftTypes?.[emp.id] ?? s.shiftTypeId ?? null;
