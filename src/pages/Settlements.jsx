@@ -282,11 +282,11 @@ export default function Settlements({ user }) {
         </div>
         {selectedId && (
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary" onClick={() => setSelectedId('')} style={{ flex: 1, fontSize: 13 }}>
-              Назад
-            </button>
             <button className="btn btn-danger" onClick={() => setShowAdjustModal(true)} style={{ flex: 1, fontSize: 13 }}>
               Корректировка
+            </button>
+            <button className="btn btn-secondary" onClick={() => setSelectedId('')} style={{ flex: 1, fontSize: 13 }}>
+              Назад
             </button>
           </div>
         )}
