@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { store } from '../store';
+import { store, toNum } from '../store';
 import { ArrowLeft, Save, AlertCircle, Calculator } from 'lucide-react';
 
 export default function EditShift({ user }) {
