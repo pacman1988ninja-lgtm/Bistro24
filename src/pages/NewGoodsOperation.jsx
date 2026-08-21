@@ -1,6 +1,11 @@
+const toLocalInput = (d = new Date()) => {
+  const offset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+};
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { store } from '../store';
+import { store, toNum } from '../store';
 import { ArrowLeft } from 'lucide-react';
 import PhotoCapture from '../components/PhotoCapture';
 
@@ -21,7 +26,8 @@ export default function NewGoodsOperation({ user }) {
   }, []);
 
   const handleSubmit = async () => {
-    if (!amount || Number(amount) <= 0) return alert('Введите сумму');
+    const n = toNum(amount);
+    if (!Number.isFinite(n) || n <= 0) return alert('Введите корректную сумму');
     if (!date) return alert('Укажите дату');
 
     if (type === 'income') {
@@ -33,7 +39,7 @@ export default function NewGoodsOperation({ user }) {
 
     const payload = {
       shiftId: id || null,
-      amount: Number(amount),
+      amount: n,
       type,
       category: 'goods',
       counterpartyId: type === 'income' ? counterpartyId : null,
