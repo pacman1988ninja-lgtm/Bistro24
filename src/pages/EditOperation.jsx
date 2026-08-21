@@ -1,6 +1,11 @@
+const toLocalInput = (d = new Date()) => {
+  const offset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+};
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { store } from '../store';
+import { store, toNum } from '../store';
 import { ArrowLeft, Save } from 'lucide-react';
 import PhotoCapture from '../components/PhotoCapture';
 
@@ -35,20 +40,21 @@ export default function EditOperation({ user }) {
       setSourceId(o.sourceId || '');
       setComment(o.comment || '');
       setPhotoIds(o.photoIds || []);
-      setDate(o.date ? o.date.slice(0, 16) : '');
+      setDate(o.date ? toLocalInput(new Date(o.date)) : '');
     });
   }, [opId, id, navigate]);
 
   const handleSave = async () => {
-    if (!amount || Number(amount) <= 0) return alert('Введите сумму');
+    const n = toNum(amount);
+    if (!Number.isFinite(n) || n <= 0) return alert('Введите корректную сумму');
 
     if (op.category === 'goods') {
       if (!date) return alert('Укажите дату');
       if (op.type === 'expense' && !writeOffTypeId) return alert('Выберите статью списания');
-      if (!counterpartyId) return alert('Выберите контрагента');
+      if (type === 'income' && !counterpartyId) return alert('Выберите контрагента');
 
       const payload = {
-        amount: Number(amount),
+        amount: n,
         date: new Date(date).toISOString(),
         writeOffTypeId: op.type === 'expense' ? writeOffTypeId : null,
         counterpartyId,
@@ -72,7 +78,7 @@ export default function EditOperation({ user }) {
     }
 
     const payload = {
-      amount: Number(amount),
+      amount: n,
       expenseTypeId: op.type === 'expense' ? expenseTypeId : null,
       paymentFormId,
       comment,
