@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { store } from '../store';
+import { store, toNum } from '../store';
 import { ArrowLeft, AlertCircle, Lock, Calculator, Camera, ImagePlus, X } from 'lucide-react';
 
 function PhotoThumb({ photoId }) {
@@ -112,8 +112,8 @@ export default function CloseShift({ user }) {
 
   const handleCalc = () => {
     const nRev = Number(revenue);
-    const nCash = Number(cash);
-    const nCashless = Number(cashless);
+    const nCash = toNum(cash);
+    const nCashless = toNum(cashless);
     if (revenue !== '' && cash !== '') setCashless(String(nRev - nCash));
     else if (revenue !== '' && cashless !== '') setCash(String(nRev - nCashless));
     else alert('Заполните выручку и одно из полей (наличные или безналичные)');
