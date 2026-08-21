@@ -227,7 +227,7 @@ function contentEqual(a, b) {
 }
 
 async function recordConflict(collection, id, local, remote) {
-  const existing = await _raw.getRaw('conflicts');
+  const existing = await _raw.getAll('conflicts');
   const dup = existing?.find(c => c.collection === collection && c.recordId === id && !c.resolved);
   if (dup) {
     dup.local = local;
