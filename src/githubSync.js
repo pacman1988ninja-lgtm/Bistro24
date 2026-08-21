@@ -94,6 +94,7 @@ export function saveSyncConfig({ token, owner, repo, branch, path }) {
   };
   localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
   setStatus({ state: 'idle', error: null });
+  setupSyncTimers();
 }
 
 export function clearSyncConfig() {
@@ -226,6 +227,15 @@ function contentEqual(a, b) {
 }
 
 async function recordConflict(collection, id, local, remote) {
+  const existing = await _raw.getRaw('conflicts');
+  const dup = existing?.find(c => c.collection === collection && c.recordId === id && !c.resolved);
+  if (dup) {
+    dup.local = local;
+    dup.remote = remote;
+    dup.detectedAt = Date.now();
+    await _raw.putRaw('conflicts', dup);
+    return;
+  }
   const conflict = {
     id: `${collection}:${id}:${Date.now()}`,
     collection,
@@ -362,13 +372,16 @@ export function schedulePush() {
 export function initSync() {
   cfg = loadRawConfig();
   setChangeListener(schedulePush);
-  if (cfg?.token) {
-    setStatus({ state: 'idle' });
-    syncNow();
-    if (intervalId) clearInterval(intervalId);
-    intervalId = setInterval(() => {
-      if (cfg?.token && navigator.onLine && !document.hidden) syncNow();
-    }, 120000);
-    window.addEventListener('online', () => { if (cfg?.token) syncNow(); });
-  }
+  if (cfg?.token) setupSyncTimers();
+}
+
+function setupSyncTimers() {
+  if (!cfg?.token) return;
+  setStatus({ state: 'idle' });
+  syncNow();
+  if (intervalId) clearInterval(intervalId);
+  intervalId = setInterval(() => {
+    if (cfg?.token && navigator.onLine && !document.hidden) syncNow();
+  }, 120000);
+  window.addEventListener('online', () => { if (cfg?.token) syncNow(); });
 }
