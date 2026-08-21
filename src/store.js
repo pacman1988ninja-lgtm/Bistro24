@@ -132,7 +132,7 @@ function generateId() {
   return 'id_' + Math.random().toString(36).slice(2, 9) + '_' + Date.now();
 }
 
-function toNum(value, fallback = 0) {
+export function toNum(value, fallback = 0) {
   if (value === null || value === undefined) return fallback;
   const str = String(value).replace(',', '.').trim();
   if (str === '') return fallback;
@@ -643,6 +643,7 @@ export const store = {
   async deleteShift(id, userId) {
     const shift = await dbGet('shifts', id);
     if (!shift) return false;
+    const deletedOpenDate = shift.openDate;
     if (shift.status === 'Открыта') {
       const user = await dbGet('users', userId);
       if (user.role === 'owner' || user.role === 'manager') {
@@ -656,7 +657,6 @@ export const store = {
       }
       await dbDelete('shifts', id);
       await logAudit(userId, 'DELETE', 'shift', id, { status: 'Открыта' });
-      return true;
     }
     if (shift.status === 'Закрыта') {
       const user = await dbGet('users', userId);
@@ -668,9 +668,13 @@ export const store = {
       }
       await dbDelete('shifts', id);
       await logAudit(userId, 'DELETE', 'shift', id, { status: 'Закрыта' });
-      return true;
     }
-    return false;
+    const allShifts = await dbGetAll('shifts');
+    const nextShift = allShifts
+      .filter(s => new Date(s.openDate) > new Date(deletedOpenDate))
+      .sort((a, b) => new Date(a.openDate) - new Date(b.openDate))[0];
+    if (nextShift) await this.recalcChain(nextShift.id);
+    return true;
   },
 
   async getOperation(id) {
