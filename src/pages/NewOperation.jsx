@@ -1,6 +1,11 @@
+const toLocalInput = (d = new Date()) => {
+  const offset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+};
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { store, nowISO } from '../store';
+import { store, nowISO, toNum } from '../store';
 import { ArrowLeft } from 'lucide-react';
 import PhotoCapture from '../components/PhotoCapture';
 
@@ -10,7 +15,7 @@ export default function NewOperation({ user }) {
   const [refs, setRefs] = useState(null);
   const [type, setType] = useState('expense');
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(nowISO());
+  const [date, setDate] = useState(toLocalInput());
   const [expenseTypeId, setExpenseTypeId] = useState('');
   const [paymentFormId, setPaymentFormId] = useState('');
   const [relatedId, setRelatedId] = useState('');
@@ -33,7 +38,8 @@ export default function NewOperation({ user }) {
   const filterRoles = selectedExpenseType?.filterRoles;
 
   const handleSubmit = async () => {
-    if (!amount || Number(amount) <= 0) return alert('Введите сумму');
+    const n = toNum(amount);
+    if (!Number.isFinite(n) || n <= 0) return alert('Введите корректную сумму');
     if (isStandalone && !paymentFormId) return alert('Выберите форму оплаты');
 
     if (type === 'expense') {
@@ -48,9 +54,9 @@ export default function NewOperation({ user }) {
 
     const payload = {
       shiftId: isStandalone ? null : id,
-      amount: Number(amount),
+      amount: n,
       type,
-      date: date || nowISO(),
+      date: date ? new Date(date).toISOString() : nowISO(),
       expenseTypeId: type === 'expense' ? expenseTypeId : null,
       paymentFormId,
       employeeId: user.id,
@@ -98,7 +104,7 @@ export default function NewOperation({ user }) {
 
       <div className="form-group">
         <label className="form-label">Дата и время</label>
-        <input type="datetime-local" className="form-input" value={date.slice(0,16)} onChange={e => setDate(new Date(e.target.value).toISOString())} />
+        <input type="datetime-local" className="form-input" value={date} onChange={e => setDate(e.target.value)} />
       </div>
 
       <div className="form-group">
