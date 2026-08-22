@@ -568,6 +568,17 @@ export const store = {
     return shift;
   },
 
+  async updateShiftOpenDate(id, openDate) {
+    const shift = await dbGet('shifts', id);
+    if (!shift) return null;
+    shift.openDate = new Date(openDate).toISOString();
+    shift.version = (shift.version || 1) + 1;
+    await dbPut('shifts', shift);
+    await logAudit(null, 'UPDATE', 'shift', id, { field: 'openDate', openDate: shift.openDate });
+    notifyChange('shifts');
+    return shift;
+  },
+
   async closeShift(shiftId, values, userId) {
     const shift = await dbGet('shifts', shiftId);
     if (!shift) return null;
