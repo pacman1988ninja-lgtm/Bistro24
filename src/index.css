@@ -60,7 +60,8 @@ html, body, #root { height: 100%; background: var(--bg); color: var(--text); fon
   -webkit-appearance: none; appearance: none;
 }
 input[type="datetime-local"].form-input {
-  -webkit-appearance: none; appearance: none;
+  -webkit-appearance: textfield;
+  appearance: auto;
   background: var(--surface-light);
   color: var(--text);
   font-family: inherit;
