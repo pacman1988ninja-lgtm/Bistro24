@@ -28,6 +28,9 @@ export default function NewGoodsOperation({ user }) {
   const handleSubmit = async () => {
     const n = toNum(amount);
     if (!Number.isFinite(n) || n <= 0) return alert('Введите корректную сумму');
+    if (shift && date && new Date(date) < new Date(shift.openDate)) {
+      return alert('Дата операции не может быть раньше даты открытия смены');
+    }
     if (!date) return alert('Укажите дату');
 
     if (type === 'income') {
