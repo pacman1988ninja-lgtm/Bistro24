@@ -611,6 +611,8 @@ export const store = {
     shift.expense = toNum(values.expense, shift.expense);
     shift.endBalance = shift.startBalance + shift.cash + shift.deposit - shift.expense;
     shift.comment = values.comment ?? shift.comment;
+    if (values.openDate) shift.openDate = new Date(values.openDate).toISOString();
+    if (values.closeDate) shift.closeDate = new Date(values.closeDate).toISOString();
     shift.version = (shift.version || 1) + 1;
     await dbPut('shifts', shift);
     await logAudit(userId, 'UPDATE', 'shift', shiftId, { old: oldData, new: values });
