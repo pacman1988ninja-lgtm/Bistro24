@@ -22,6 +22,13 @@ export default function NewOperation({ user }) {
   const [sourceId, setSourceId] = useState('');
   const [comment, setComment] = useState('');
   const [photoIds, setPhotoIds] = useState([]);
+  const [shift, setShift] = useState(null);
+
+  useEffect(() => {
+    if (id && id !== 'new') {
+      store.getShift(id).then(s => setShift(s));
+    }
+  }, [id]);
 
   useEffect(() => {
     store.getReferences().then(r => {
@@ -40,6 +47,9 @@ export default function NewOperation({ user }) {
   const handleSubmit = async () => {
     const n = toNum(amount);
     if (!Number.isFinite(n) || n <= 0) return alert('Введите корректную сумму');
+    if (shift && date && new Date(date) < new Date(shift.openDate)) {
+      return alert('Дата операции не может быть раньше даты открытия смены');
+    }
     if (isStandalone && !paymentFormId) return alert('Выберите форму оплаты');
 
     if (type === 'expense') {
