@@ -1,3 +1,8 @@
+const toLocalInput = (d = new Date()) => {
+  const offset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+};
+
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { store, getShortWeekday } from '../store';
@@ -24,6 +29,8 @@ export default function ShiftDetail({ user }) {
   const [addEmpType, setAddEmpType] = useState('');
   const [addEmpId, setAddEmpId] = useState('');
   const [editingTypeFor, setEditingTypeFor] = useState(null);
+  const [openDateInput, setOpenDateInput] = useState('');
+  const [savingDate, setSavingDate] = useState(false);
   const [editTypeValue, setEditTypeValue] = useState('');
   const [photoBusy, setPhotoBusy] = useState(false);
 
@@ -187,7 +194,41 @@ export default function ShiftDetail({ user }) {
 
       <div className="card" style={{ marginBottom: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-secondary)' }}>
-          <span>Открыта: {new Date(shift.openDate).toLocaleString('ru-RU')}, {getShortWeekday(shift.openDate)}</span>
+          {shift.status === 'Открыта' && canEdit ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span>Открыта:</span>
+              <input
+                type="datetime-local"
+                value={openDateInput}
+                onChange={e => setOpenDateInput(e.target.value)}
+                onBlur={async () => {
+                  if (!openDateInput || !shift) return;
+                  setSavingDate(true);
+                  try {
+                    await store.updateShiftOpenDate(shift.id, openDateInput);
+                  } catch (err) {
+                    alert('Ошибка: ' + err.message);
+                  } finally {
+                    setSavingDate(false);
+                  }
+                }}
+                disabled={savingDate}
+                style={{
+                  background: 'var(--surface-light)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  padding: '4px 8px',
+                  fontSize: 13,
+                  fontFamily: 'inherit',
+                }}
+              />
+              <span>, {getShortWeekday(shift.openDate)}</span>
+              {savingDate && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>сохранение...</span>}
+            </div>
+          ) : (
+            <span>Открыта: {new Date(shift.openDate).toLocaleString('ru-RU')}, {getShortWeekday(shift.openDate)}</span>
+          )}
           {shift.closeDate && <span>Закрыта: {new Date(shift.closeDate).toLocaleString('ru-RU')}, {getShortWeekday(shift.closeDate)}</span>}
         </div>
       </div>
