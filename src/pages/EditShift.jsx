@@ -13,6 +13,8 @@ export default function EditShift({ user }) {
   const [cash, setCash] = useState('');
   const [cashless, setCashless] = useState('');
   const [comment, setComment] = useState('');
+  const [openDate, setOpenDate] = useState('');
+  const [closeDate, setCloseDate] = useState('');
   const [lastEdited, setLastEdited] = useState(null);
 
   useEffect(() => {
@@ -31,6 +33,8 @@ export default function EditShift({ user }) {
       setCash(String(s.cash || 0));
       setCashless(String(s.cashless || 0));
       setComment(s.comment || '');
+      setOpenDate(s.openDate ? toLocalInput(new Date(s.openDate)) : '');
+      setCloseDate(s.closeDate ? toLocalInput(new Date(s.closeDate)) : '');
     });
   }, [id, user, navigate]);
 
@@ -74,7 +78,7 @@ export default function EditShift({ user }) {
     if (!revenueMatch && Number(revenue) > 0) {
       if (!confirm('Выручка не равна сумме наличных и безнала. Продолжить?')) return;
     }
-    await store.updateShift(id, { revenue, cash, cashless, comment }, user.id);
+    await store.updateShift(id, { revenue, cash, cashless, comment, openDate, closeDate }, user.id);
     navigate(`/shift/${id}`);
   };
 
@@ -121,6 +125,16 @@ export default function EditShift({ user }) {
       </div>
 
       <div className="form-group"><label className="form-label">Комментарий</label><input type="text" className="form-input" value={comment} onChange={e => setComment(e.target.value)} /></div>
+
+      <div className="form-group">
+        <label className="form-label">Дата и время открытия</label>
+        <input type="datetime-local" className="form-input" value={openDate} onChange={e => setOpenDate(e.target.value)} />
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">Дата и время закрытия</label>
+        <input type="datetime-local" className="form-input" value={closeDate} onChange={e => setCloseDate(e.target.value)} />
+      </div>
 
       <button className="btn btn-success" onClick={handleSave} style={{ marginBottom: 40 }}><Save size={18} /> Сохранить изменения</button>
     </div>
