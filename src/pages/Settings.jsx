@@ -172,7 +172,7 @@ export default function Settings({ user }) {
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <ExportExcel />
+        {isManager && <ExportExcel />}
         {isManager && (
           <button className="btn btn-secondary" onClick={() => navigate('/departments')}>
             <BookOpen size={18} /> Справочники
