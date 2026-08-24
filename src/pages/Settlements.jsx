@@ -131,7 +131,7 @@ export default function Settlements({ user }) {
   const getUserName = (id) => refs.employees?.find(e => e.id === id)?.name || refs.users?.find(u => u.id === id)?.fullName || '—';
 
   const compressImage = (file) => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
@@ -145,8 +145,10 @@ export default function Settlements({ user }) {
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
+        img.onerror = () => reject(new Error('Не удалось обработать файл'));
         img.src = e.target.result;
       };
+      reader.onerror = () => reject(new Error('Не удалось прочитать файл'));
       reader.readAsDataURL(file);
     });
   };
