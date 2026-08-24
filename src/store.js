@@ -404,8 +404,10 @@ export const store = {
     const shiftOps = ops.filter(o => o.shiftId === shiftId);
     const cashOps = shiftOps.filter(o => !o.category || o.category === 'cash');
     const goodsOps = shiftOps.filter(o => o.category === 'goods');
-    shift.deposit = cashOps.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
-    shift.expense = cashOps.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
+    const refs = await this.getReferences();
+    const cashFormId = refs.paymentForms?.find(pf => pf.name === 'Наличные')?.id;
+    shift.deposit = cashOps.filter(o => o.type === 'income' && o.paymentFormId === cashFormId).reduce((s, o) => s + o.amount, 0);
+    shift.expense = cashOps.filter(o => o.type === 'expense' && o.paymentFormId === cashFormId).reduce((s, o) => s + o.amount, 0);
     shift.goodsIncome = goodsOps.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
     shift.goodsExpense = goodsOps.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
     if (shift.status === 'Закрыта') {
@@ -499,9 +501,9 @@ export const store = {
 
     const closed = shifts
       .filter((s) => s.status === 'Закрыта')
-      .sort((a, b) => new Date(b.closeDate || b.openDate) - new Date(a.closeDate || a.openDate));
+      .sort((a, b) => new Date(a.openDate) - new Date(b.openDate));
 
-    const startBalance = closed.length > 0 ? closed[0].endBalance : 0;
+    const startBalance = closed.length > 0 ? closed[closed.length - 1].endBalance : 0;
 
     const shift = {
       id: generateId(),
@@ -587,8 +589,13 @@ export const store = {
     shift.revenue = toNum(values.revenue);
     shift.cash = toNum(values.cash);
     shift.cashless = toNum(values.cashless);
-    shift.deposit = toNum(values.deposit);
-    shift.expense = toNum(values.expense);
+    const ops = await dbGetAll('operations');
+    const shiftOps = ops.filter(o => o.shiftId === shiftId);
+    const cashOps = shiftOps.filter(o => !o.category || o.category === 'cash');
+    const refs = await this.getReferences();
+    const cashFormId = refs.paymentForms?.find(pf => pf.name === 'Наличные')?.id;
+    shift.deposit = cashOps.filter(o => o.type === 'income' && o.paymentFormId === cashFormId).reduce((s, o) => s + o.amount, 0);
+    shift.expense = cashOps.filter(o => o.type === 'expense' && o.paymentFormId === cashFormId).reduce((s, o) => s + o.amount, 0);
     shift.endBalance = shift.startBalance + shift.cash + shift.deposit - shift.expense;
     shift.status = 'Закрыта';
     shift.closeDate = nowISO();
