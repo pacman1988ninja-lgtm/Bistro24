@@ -141,16 +141,19 @@ export default function Departments({ user }) {
     setEditShiftTypes([]);
   };
 
-  const isPinTaken = (pin, excludeId) => {
-    return (refs.employees || []).some(e => e.active && e.pin === pin && e.id !== excludeId);
+  const isPinTaken = async (pin, excludeId) => {
+    const employeesConflict = (refs.employees || []).some(e => e.active && e.pin === pin && e.id !== excludeId);
+    if (employeesConflict) return true;
+    const users = await store.getUsers();
+    return users.some(u => u.active && u.pin === pin && u.id !== excludeId);
   };
 
-  const saveItem = () => {
+  const saveItem = async () => {
     if (!editName.trim()) return alert('Введите название');
     if (refType === 'employees' && editPin && !/^\d{4}$/.test(editPin)) {
       return alert('PIN-код должен содержать ровно 4 цифры');
     }
-    if (refType === 'employees' && isPinTaken(editPin, editId)) {
+    if (refType === 'employees' && await isPinTaken(editPin, editId)) {
       return alert('Этот PIN уже используется другим активным сотрудником. Выберите другой.');
     }
     const updated = { ...refs };
