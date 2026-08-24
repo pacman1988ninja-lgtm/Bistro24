@@ -19,6 +19,10 @@ export default function Reports({ user }) {
   const [period, setPeriod] = useState('week');
 
   useEffect(() => {
+    if (user?.role === 'seller') {
+      navigate('/');
+      return;
+    }
     store.getShifts().then(all => setShifts(all.filter(s => s.status === 'Закрыта')));
   }, []);
 
