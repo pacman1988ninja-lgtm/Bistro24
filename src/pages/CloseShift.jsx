@@ -107,8 +107,8 @@ export default function CloseShift({ user }) {
 
   if (!shift) return null;
 
-  const calculated = Number(shift.startBalance) + Number(cash || 0) + opsIncome - opsExpense;
-  const revenueMatch = Number(revenue || 0) === (Number(cash || 0) + Number(cashless || 0));
+  const calculated = Number(shift.startBalance) + toNum(cash) + opsIncome - opsExpense;
+  const revenueMatch = toNum(revenue) === (toNum(cash) + toNum(cashless));
 
   const handleCalc = () => {
     const nRev = Number(revenue);

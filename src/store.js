@@ -568,13 +568,17 @@ export const store = {
     return shift;
   },
 
-  async updateShiftOpenDate(id, openDate) {
+  async updateShiftOpenDate(id, openDate, userId) {
+    if (!openDate || String(openDate).trim() === '') return null;
     const shift = await dbGet('shifts', id);
-    if (!shift) return null;
+    if (!shift || shift.status !== 'Открыта') return null;
+    const user = await dbGet('users', userId);
+    if (!user) return null;
+    if (!shift.employeeIds?.includes(userId) && user.role === 'seller') return null;
     shift.openDate = new Date(openDate).toISOString();
     shift.version = (shift.version || 1) + 1;
     await dbPut('shifts', shift);
-    await logAudit(null, 'UPDATE', 'shift', id, { field: 'openDate', openDate: shift.openDate });
+    await logAudit(userId, 'UPDATE', 'shift', id, { field: 'openDate', openDate: shift.openDate });
     notifyChange('shifts');
     return shift;
   },
@@ -697,6 +701,14 @@ export const store = {
   async updateOperation(opId, values, userId) {
     const op = await dbGet('operations', opId);
     if (!op) return null;
+    const user = await dbGet('users', userId);
+    if (!user) return null;
+    if (op.shiftId) {
+      const shift = await dbGet('shifts', op.shiftId);
+      if (!shift || !this.canEditOperation(shift, user)) return null;
+    } else {
+      if (user.role === 'seller') return null;
+    }
     const oldData = { ...op };
     op.amount = toNum(values.amount, op.amount);
     op.type = 'type' in values ? values.type : op.type;
@@ -723,6 +735,14 @@ export const store = {
   async deleteOperation(id, userId) {
     const op = await dbGet('operations', id);
     if (!op) return false;
+    const user = await dbGet('users', userId);
+    if (!user) return false;
+    if (op.shiftId) {
+      const shift = await dbGet('shifts', op.shiftId);
+      if (!shift || !this.canEditOperation(shift, user)) return false;
+    } else {
+      if (user.role === 'seller') return false;
+    }
     const shiftId = op.shiftId;
     for (const pid of op.photoIds || []) await dbDelete('photos', pid);
     await dbDelete('operations', id);
