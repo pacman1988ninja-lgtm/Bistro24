@@ -289,6 +289,7 @@ export const store = {
   },
 
   async loginByPin(pin) {
+    if (!pin) return null;
     const users = await dbGetAll('users');
     const user = users.find((u) => u.pin === pin && u.active);
     if (user) {
@@ -300,7 +301,7 @@ export const store = {
 
   async loginByEmail(email) {
     const users = await dbGetAll('users');
-    const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.active);
+    const user = users.find((u) => (u.email || '').toLowerCase() === email.toLowerCase() && u.active);
     if (user) {
       localStorage.setItem('bistro24_session', JSON.stringify({ userId: user.id, ts: Date.now() }));
       return user;
@@ -374,7 +375,7 @@ export const store = {
           email: '',
           fullName: emp.name,
           role: emp.role,
-          pin: emp.pin || '0000',
+          pin: emp.pin || '',
           active: true,
         });
       }
