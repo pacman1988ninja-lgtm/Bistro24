@@ -45,8 +45,8 @@ export default function EditShift({ user }) {
 
   if (!shift) return null;
 
-  const calculated = Number(shift.startBalance) + Number(cash || 0) + opsIncome - opsExpense;
-  const revenueMatch = Number(revenue || 0) === (Number(cash || 0) + Number(cashless || 0));
+  const calculated = Number(shift.startBalance) + toNum(cash) + opsIncome - opsExpense;
+  const revenueMatch = toNum(revenue) === (toNum(cash) + toNum(cashless));
 
   const handleCashChange = (v) => {
     setCash(v);
@@ -59,21 +59,21 @@ export default function EditShift({ user }) {
   };
 
   const handleCalc = () => {
-    const nRev = Number(revenue);
+    const nRev = toNum(revenue);
     if (revenue === '') {
       alert('Заполните выручку');
       return;
     }
     if (lastEdited === 'cashless') {
       if (cashless === '') { alert('Заполните безналичные'); return; }
-      setCash(String(nRev - Number(cashless)));
+      setCash(String(nRev - toNum(cashless)));
     } else if (lastEdited === 'cash') {
       if (cash === '') { alert('Заполните наличные'); return; }
-      setCashless(String(nRev - Number(cash)));
+      setCashless(String(nRev - toNum(cash)));
     } else if (cash !== '') {
-      setCashless(String(nRev - Number(cash)));
+      setCashless(String(nRev - toNum(cash)));
     } else if (cashless !== '') {
-      setCash(String(nRev - Number(cashless)));
+      setCash(String(nRev - toNum(cashless)));
     } else {
       alert('Заполните выручку и одно из полей (наличные или безналичные)');
     }

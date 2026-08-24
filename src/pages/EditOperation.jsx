@@ -51,7 +51,7 @@ export default function EditOperation({ user }) {
     if (op.category === 'goods') {
       if (!date) return alert('Укажите дату');
       if (op.type === 'expense' && !writeOffTypeId) return alert('Выберите статью списания');
-      if (type === 'income' && !counterpartyId) return alert('Выберите контрагента');
+      if (op.type === 'income' && !counterpartyId) return alert('Выберите контрагента');
 
       const payload = {
         amount: n,

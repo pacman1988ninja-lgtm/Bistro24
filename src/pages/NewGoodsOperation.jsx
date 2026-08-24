@@ -20,9 +20,11 @@ export default function NewGoodsOperation({ user }) {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 16));
   const [comment, setComment] = useState('');
   const [photoIds, setPhotoIds] = useState([]);
+  const [shift, setShift] = useState(null);
 
   useEffect(() => {
     store.getReferences().then(r => setRefs(r));
+    if (id) store.getShift(id).then(s => setShift(s));
   }, []);
 
   const handleSubmit = async () => {

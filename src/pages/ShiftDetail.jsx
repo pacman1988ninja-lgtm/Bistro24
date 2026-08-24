@@ -205,7 +205,10 @@ export default function ShiftDetail({ user }) {
                   if (!openDateInput || !shift) return;
                   setSavingDate(true);
                   try {
-                    await store.updateShiftOpenDate(shift.id, openDateInput);
+                    const result = await store.updateShiftOpenDate(shift.id, openDateInput, user.id);
+                    if (!result) {
+                      alert('Не удалось изменить дату. Проверьте права доступа или корректность даты.');
+                    }
                   } catch (err) {
                     alert('Ошибка: ' + err.message);
                   } finally {
