@@ -55,7 +55,7 @@ export default function CloseShift({ user }) {
     return () => { mounted = false; };
   }, [id, navigate]);
 
-  const compressImage = (file) => new Promise((resolve) => {
+  const compressImage = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
@@ -69,8 +69,10 @@ export default function CloseShift({ user }) {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         resolve(canvas.toDataURL('image/jpeg', 0.75));
       };
+      img.onerror = () => reject(new Error('Не удалось обработать файл'));
       img.src = e.target.result;
     };
+    reader.onerror = () => reject(new Error('Не удалось прочитать файл'));
     reader.readAsDataURL(file);
   });
 
@@ -78,16 +80,21 @@ export default function CloseShift({ user }) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setPhotoBusy(true);
-    const ids = [...photoIds];
-    for (const file of files) {
-      const dataUrl = await compressImage(file);
-      const photo = await store.addPhoto(dataUrl);
-      ids.push(photo.id);
+    try {
+      const ids = [...photoIds];
+      for (const file of files) {
+        const dataUrl = await compressImage(file);
+        const photo = await store.addPhoto(dataUrl);
+        ids.push(photo.id);
+      }
+      setPhotoIds(ids);
+      await store.updateShiftPhotos(id, ids);
+    } catch (err) {
+      alert('Ошибка загрузки фото: ' + err.message);
+    } finally {
+      setPhotoBusy(false);
+      e.target.value = '';
     }
-    setPhotoIds(ids);
-    await store.updateShiftPhotos(id, ids);
-    setPhotoBusy(false);
-    e.target.value = '';
   };
 
   const handleRemovePhoto = async (photoId) => {

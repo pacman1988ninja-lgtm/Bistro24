@@ -11,7 +11,7 @@ export default function PhotoCapture({ photoIds, onChange }) {
   }, [photoIds]);
 
   const compressImage = (file) => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
@@ -25,8 +25,10 @@ export default function PhotoCapture({ photoIds, onChange }) {
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
+        img.onerror = () => reject(new Error('Не удалось обработать файл'));
         img.src = e.target.result;
       };
+      reader.onerror = () => reject(new Error('Не удалось прочитать файл'));
       reader.readAsDataURL(file);
     });
   };
@@ -35,19 +37,24 @@ export default function PhotoCapture({ photoIds, onChange }) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setLoading(true);
-    const newIds = [];
-    for (const file of files) {
-      const dataUrl = await compressImage(file);
-      const photo = await store.addPhoto(dataUrl);
-      newIds.push(photo.id);
+    try {
+      const newIds = [];
+      for (const file of files) {
+        const dataUrl = await compressImage(file);
+        const photo = await store.addPhoto(dataUrl);
+        newIds.push(photo.id);
+      }
+      setPhotos(prev => {
+        const combined = [...prev, ...newIds];
+        onChange(combined);
+        return combined;
+      });
+    } catch (err) {
+      alert('Ошибка загрузки фото: ' + err.message);
+    } finally {
+      setLoading(false);
+      e.target.value = '';
     }
-    setPhotos(prev => {
-      const combined = [...prev, ...newIds];
-      onChange(combined);
-      return combined;
-    });
-    setLoading(false);
-    e.target.value = '';
   };
 
   const removePhoto = async (id) => {
